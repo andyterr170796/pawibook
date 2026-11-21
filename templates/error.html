@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block contenido %}
+<div class="card vacio" style="padding:60px 20px">
+  <div class="emoji">🐕‍🦺</div>
+  <h1>{{ titulo }}</h1>
+  <p>{{ mensaje }}</p>
+  <a class="btn btn-primario" href="/">Volver al inicio</a>
+</div>
+{% endblock %}

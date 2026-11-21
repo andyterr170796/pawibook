@@ -1,0 +1,150 @@
+{# Macros compartidas. Importar con: {% import "_macros.html" as m with context %} #}
+
+{% macro nav(url, ico, texto, contador=0) -%}
+<a href="{{ url }}" class="{% if ruta == url %}activo{% endif %}" {% if ruta == url %}aria-current="page"{% endif %}>
+  {{ icono(ico, 20) }} {{ texto }}{% if contador %}<span class="pill">{{ contador }}</span>{% endif %}
+</a>
+{%- endmacro %}
+
+{% macro tipo_corto(pf) -%}
+{% if pf.es_mascota %}{{ cat.ESPECIES.get(pf.especie or 'otro', ('Mascota', ''))[0] }}{% if pf.raza %} · {{ pf.raza }}{% endif %}{% else %}{{ cat.CATEGORIAS_ENTIDAD.get(pf.categoria or 'otro', ('Entidad', ''))[0] }}{% endif %}
+{%- endmacro %}
+
+{% macro subtitulo(pf) -%}
+{% if pf.es_mascota -%}
+{{ pf.raza or cat.ESPECIES.get(pf.especie or 'otro', ('Mascota', ''))[0] }}{% if pf.sexo %} {{ cat.SEXOS[pf.sexo][1] }}{% endif %}{% set e = edad_texto(pf) %}{% if e %} · {{ e }}{% endif %}{% if pf.distrito %} · {{ pf.distrito }}{% endif %}
+{%- else -%}
+{{ cat.CATEGORIAS_ENTIDAD.get(pf.categoria or 'otro', ('Entidad', ''))[0] }}{% if pf.distrito %} · {{ pf.distrito }}{% endif %}
+{%- endif %}
+{%- endmacro %}
+
+{% macro verificado(pf, tam=16) -%}
+{% if pf.verificada %}<span class="verificado" title="Entidad verificada por Pawbook" aria-label="Verificada">{{ icono('check', tam) }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro boton_seguir(pf, siguiendo, chico=False) -%}
+<button type="button" class="btn {% if chico %}btn-chico{% endif %} btn-seguir {% if siguiendo %}siguiendo{% else %}btn-primario{% endif %}" data-seguir="{{ pf.id }}">
+  <span class="txt">{% if siguiendo %}Siguiendo{% else %}Seguir{% endif %}</span>
+</button>
+{%- endmacro %}
+
+{% macro tarjeta_perfil(pf, siguiendo=False, distancia=None) -%}
+<div class="card tarjeta-perfil">
+  {% if distancia is not none %}<span class="distancia">{{ '%.1f'|format(distancia) }} km</span>{% endif %}
+  <a href="/p/{{ pf.handle }}" aria-label="Ver perfil de {{ pf.nombre }}">{{ avatar(pf, 84) }}</a>
+  <a class="nombre" href="/p/{{ pf.handle }}">{{ pf.nombre }}</a>
+  <div class="sub">{{ subtitulo(pf) }} {{ verificado(pf, 14) }}</div>
+  {% if pf.es_mascota and pf.lista_tags %}
+  <div class="chips">{% for t in pf.lista_tags[:3] %}<span class="chip chip-ambar">#{{ t }}</span>{% endfor %}</div>
+  {% elif pf.es_entidad and pf.horario %}
+  <div class="tenue">{{ pf.horario }}</div>
+  {% endif %}
+  {% if perfil and pf.usuario_id != usuario.id %}{{ boton_seguir(pf, siguiendo, True) }}{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro fila_perfil(pf, siguiendo=False) -%}
+<div class="perfil-fila">
+  <a href="/p/{{ pf.handle }}" aria-label="Ver perfil de {{ pf.nombre }}">{{ avatar(pf, 42) }}</a>
+  <div class="info"><a href="/p/{{ pf.handle }}">{{ pf.nombre }} {{ verificado(pf, 14) }}</a><span>{{ subtitulo(pf) }}</span></div>
+  {% if perfil and pf.usuario_id != usuario.id %}{{ boton_seguir(pf, siguiendo, True) }}{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro evento_item(it) -%}
+{% set info = cat.TIPOS_EVENTO.get(it.tipo, ('Evento', '📌', '#5B6475')) %}
+<div class="evento-item {% if it.dias == 0 %}hoy{% endif %}">
+  <div class="evento-fecha"><b>{{ it.fecha.day }}</b><small>{{ MESES[it.fecha.month - 1][:3] }}</small></div>
+  <div class="info">
+    <strong>{{ info[1] }} {{ it.titulo }}</strong>
+    <span>{% if it.mascota.usuario_id == usuario.id %}{{ it.mascota.nombre }} · {% endif %}{{ dias_texto(it.dias)|capitalize }}{% if it.hora %} · {{ it.hora }}{% endif %}</span>
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro anuncio_lateral(a) -%}
+<div class="card anuncio {{ a.tipo }}">
+  <div class="anuncio-banda"></div>
+  {% if a.imagen %}<a href="/anuncio/{{ a.id }}/ir" rel="sponsored noopener"><img class="anuncio-img" src="{{ a.imagen }}" alt="{{ a.titulo }}" loading="lazy"></a>{% endif %}
+  <div class="anuncio-cuerpo">
+    <div class="fila-entre">
+      <span class="etiqueta-anuncio">{% if a.tipo == 'pagado' %}Patrocinado{% else %}Campaña solidaria{% endif %}</span>
+    </div>
+    <h4>{{ a.titulo }}</h4>
+    {% if a.texto %}<p>{{ a.texto }}</p>{% endif %}
+    <div class="fila-entre">
+      <a class="fila" href="/p/{{ a.anunciante.handle }}" style="gap:8px;font-weight:700;font-size:.86rem;color:var(--texto-2)">{{ avatar(a.anunciante, 26) }} {{ a.anunciante.nombre }}</a>
+      <a class="btn btn-suave btn-chico" href="/anuncio/{{ a.id }}/ir" rel="sponsored noopener">Ver más</a>
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro publicacion(post, descubre=False, ids_sigo=None) -%}
+<article class="card publicacion" id="post-{{ post.id }}">
+  <header class="pub-cabecera">
+    <a href="/p/{{ post.autor.handle }}" aria-label="Perfil de {{ post.autor.nombre }}">{{ avatar(post.autor, 44) }}</a>
+    <div style="flex:1;min-width:0">
+      <a class="pub-autor" href="/p/{{ post.autor.handle }}">{{ post.autor.nombre }}</a> {{ verificado(post.autor, 15) }}
+      <div class="pub-meta">{{ subtitulo(post.autor) }} · <time datetime="{{ post.creado.isoformat() }}" title="{{ post.creado.strftime('%d/%m/%Y %H:%M') }}">{{ post.creado|hace }}</time></div>
+    </div>
+    {% if usuario and post.autor.usuario_id == usuario.id %}
+    <form method="post" action="/publicacion/{{ post.id }}/eliminar" data-confirmar="¿Eliminar esta publicación?">
+      <button class="btn-icono" title="Eliminar publicación" aria-label="Eliminar publicación">{{ icono('basura', 18) }}</button>
+    </form>
+    {% elif descubre and perfil and ids_sigo is not none %}
+    {{ boton_seguir(post.autor, post.autor.id in ids_sigo, True) }}
+    {% endif %}
+  </header>
+  {% if post.texto %}<div class="pub-texto">{{ post.texto|enlazar }}</div>{% endif %}
+  {% if post.imagen %}<img class="pub-imagen" src="{{ post.imagen }}" alt="Foto publicada por {{ post.autor.nombre }}" loading="lazy">{% endif %}
+  <div class="pub-acciones">
+    {% if usuario and perfil %}
+    <button type="button" class="accion {% if post.me_gusta %}activa{% endif %}" data-like="{{ post.id }}" aria-pressed="{{ 'true' if post.me_gusta else 'false' }}" aria-label="Me gusta">{{ icono('corazon', 20) }} <span class="n">{{ post.n_likes }}</span></button>
+    <button type="button" class="accion" data-abrir-comentarios aria-label="Comentar">{{ icono('comentario', 20) }} <span data-n-comentarios="{{ post.id }}">{{ post.comentarios|length }}</span></button>
+    {% else %}
+    <span class="accion">{{ icono('corazon', 20) }} {{ post.n_likes }}</span>
+    <span class="accion">{{ icono('comentario', 20) }} {{ post.comentarios|length }}</span>
+    {% endif %}
+  </div>
+  {% set total = post.comentarios|length %}
+  <div class="comentarios {% if not total and not (usuario and perfil) %}oculto{% elif not total %}oculto{% endif %}">
+    {% if total > 3 %}<button type="button" class="ver-mas-coment">Ver los {{ total }} comentarios</button>{% endif %}
+    {% for c in post.comentarios %}
+    <div class="comentario {% if loop.index <= total - 3 %}oculto{% endif %}">
+      <a href="/p/{{ c.autor.handle }}" aria-label="Perfil de {{ c.autor.nombre }}">{{ avatar(c.autor, 32) }}</a>
+      <div>
+        <div class="comentario-burbuja"><a href="/p/{{ c.autor.handle }}">{{ c.autor.nombre }}</a><p>{{ c.texto }}</p></div>
+        <span class="tenue">{{ c.creado|hace }}</span>
+        {% if usuario and (c.autor.usuario_id == usuario.id or post.autor.usuario_id == usuario.id) %}<button type="button" class="borrar" data-borrar-comentario="{{ c.id }}">Eliminar</button>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% if usuario and perfil %}
+    <form class="form-comentario" data-id="{{ post.id }}">
+      {{ avatar(perfil, 32) }}
+      <input type="text" maxlength="1000" placeholder="Comenta como {{ perfil.nombre }}…" aria-label="Escribe un comentario">
+      <button class="btn-icono" aria-label="Enviar comentario">{{ icono('enviar', 18) }}</button>
+    </form>
+    {% endif %}
+  </div>
+</article>
+{%- endmacro %}
+
+{% macro tarjeta_aviso(r, compacta=False) -%}
+{% set sello = cat.TIPOS_AVISO.get(r.tipo, ('', '📍', '')) %}
+<a class="card aviso-card {% if compacta %}compacta{% endif %}" href="/perdidos/{{ r.id }}">
+  <div class="aviso-foto">
+    {% if r.foto_mostrar %}<img src="{{ r.foto_mostrar }}" alt="Foto de {{ r.nombre or 'la mascota' }}" loading="lazy">
+    {% else %}<span class="emoji" aria-hidden="true">{{ cat.ESPECIES.get(r.especie or 'otro', ('', '🐾'))[1] }}</span>{% endif %}
+    <span class="sello sello-{{ r.tipo if r.activo else 'resuelto' }}">{% if r.activo %}{{ sello[1] }} {{ sello[2] }}{% else %}🎉 Reunida{% endif %}</span>
+  </div>
+  <div class="aviso-cuerpo">
+    <strong>{{ titulo_aviso(r) }}</strong>
+    <span class="sub">{{ cat.ESPECIES.get(r.especie or 'otro', ('Mascota', ''))[0] }}{% if r.raza %} · {{ r.raza }}{% endif %}{% if r.sexo %} · {{ cat.SEXOS[r.sexo][1] }}{% endif %}</span>
+    {% if not compacta and r.color %}<span class="sub">{{ r.color|truncate(70) }}</span>{% endif %}
+    <span class="meta">{{ icono('pin', 14) }} {{ r.distrito or 'Ubicación en el mapa' }}{% if r.distancia is defined and r.distancia is not none %} · {{ '%.1f'|format(r.distancia) }} km{% endif %} · {{ fecha_corta(r.fecha) }}</span>
+    {% if r.recompensa and r.activo and not compacta %}<span class="chip chip-ambar">💰 Recompensa: {{ r.recompensa }}</span>{% endif %}
+  </div>
+</a>
+{%- endmacro %}

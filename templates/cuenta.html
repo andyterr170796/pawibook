@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block titulo %}Mi cuenta{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block contenido %}
+<div class="card">
+  <div class="seccion-form">
+    <h2>{{ icono('usuario', 20) }} Mi cuenta</h2>
+    <p style="margin:0"><b>{{ usuario.nombre }}</b></p>
+    <p class="suave" style="margin:0">{{ usuario.email }}</p>
+    <p class="tenue" style="margin:8px 0 0">Tu nombre y correo no se muestran en los perfiles públicos. Con esta cuenta manejas {{ mis_perfiles|length }} perfil{{ '' if mis_perfiles|length == 1 else 'es' }}.</p>
+  </div>
+
+  <div class="seccion-form">
+    <h2>{{ icono('escudo', 20) }} Cambiar contraseña</h2>
+    {% if es_demo %}
+    <div class="alerta alerta-info" role="note">Estás en la cuenta demo, que comparten todos los visitantes: su contraseña no se puede cambiar. Crea tu propia cuenta para tener una contraseña personal.</div>
+    {% else %}
+    {% if error %}<div class="alerta alerta-error" role="alert">{{ error }}</div>{% endif %}
+    <form method="post" action="/cuenta/password" style="max-width:520px">
+      <div class="campo"><label for="actual">Contraseña actual</label><input id="actual" type="password" name="actual" required autocomplete="current-password"></div>
+      <div class="rejilla-2">
+        <div class="campo"><label for="password">Nueva contraseña</label><input id="password" type="password" name="password" required minlength="8" maxlength="128" autocomplete="new-password"></div>
+        <div class="campo"><label for="password2">Repítela</label><input id="password2" type="password" name="password2" required minlength="8" maxlength="128" autocomplete="new-password"></div>
+      </div>
+      <p class="tenue">Mínimo 8 caracteres, con mayúscula, minúscula y número. Al cambiarla cerraremos tu sesión en los demás dispositivos{% if correo_activo %} y te avisaremos por correo{% endif %}.</p>
+      <button class="btn btn-primario" type="submit">Guardar contraseña</button>
+    </form>
+    <p class="tenue mt">¿No recuerdas la actual? <a href="/recuperar">Recupérala por correo</a>.</p>
+    {% endif %}
+  </div>
+
+  {% if not es_demo %}
+  <div class="seccion-form">
+    <h2>{{ icono('salir', 20) }} Sesiones</h2>
+    <p class="suave">Si iniciaste sesión en un equipo que no es tuyo o perdiste tu celular, cierra la sesión en todos los demás dispositivos. Aquí seguirás conectado.</p>
+    <form method="post" action="/cuenta/cerrar-sesiones" data-confirmar="¿Cerrar la sesión en todos tus otros dispositivos?">
+      <button class="btn btn-secundario" type="submit">Cerrar sesión en los demás dispositivos</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block titulo %}Anuncios{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block contenido %}
+<div class="encabezado-pagina">
+  <div><h1>Anuncios</h1><p>Llega a dueños de mascotas de tu zona.</p></div>
+</div>
+
+{% if not perfil.es_entidad %}
+<div class="card card-pad">
+  <div class="rejilla-2" style="gap:24px">
+    <div>
+      <h3>📣 Anuncios pagados</h3>
+      <p class="suave">Para veterinarias, tiendas, marcas de alimentos y servicios. Aparecen como “Patrocinado” en el inicio de los usuarios.</p>
+    </div>
+    <div>
+      <h3>💛 Anuncios gratuitos</h3>
+      <p class="suave">Para centros de adopción, caridades y campañas gratuitas de vacunación o esterilización. Aparecen en “Campañas solidarias”.</p>
+    </div>
+  </div>
+  <div class="alerta alerta-info" style="margin:8px 0 0">Para publicar anuncios necesitas un perfil de entidad.
+    {% set entidades = mis_perfiles|selectattr('tipo', 'equalto', 'entidad')|list %}
+    {% if entidades %}Cambia a {{ entidades[0].nombre }} desde el menú de perfil.{% else %}<a href="/perfil/nuevo?tipo=entidad">Crea uno aquí</a>.{% endif %}
+  </div>
+</div>
+{% else %}
+
+<section class="card mb">
+  <div class="card-pad" style="padding-bottom:0"><div class="card-titulo"><h3>{{ icono('barras', 18) }} Anuncios de {{ perfil.nombre }}</h3></div></div>
+  {% if anuncios %}
+  <div class="tabla-contenedor">
+    <table class="tabla">
+      <thead><tr><th>Anuncio</th><th>Tipo</th><th>Estado</th><th>Vigencia</th><th>Vistas</th><th>Clics</th><th></th></tr></thead>
+      <tbody>
+      {% for a in anuncios %}
+      <tr>
+        <td><b>{{ a.titulo }}</b><div class="tenue">{{ (cat.CATEGORIAS_ANUNCIO_PAGADO if a.tipo == 'pagado' else cat.CATEGORIAS_ANUNCIO_GRATUITO).get(a.categoria, a.categoria) }}</div></td>
+        <td>{% if a.tipo == 'pagado' %}<span class="chip">Pagado{% if a.plan %} · {{ cat.PLANES_ANUNCIO[a.plan][0] }}{% endif %}</span>{% else %}<span class="chip chip-rosa">Gratuito</span>{% endif %}</td>
+        <td><span class="estado estado-{{ 'finalizado' if a.estado == 'activo' and a.fecha_fin and a.fecha_fin < hoy else a.estado }}">{{ 'finalizado' if a.estado == 'activo' and a.fecha_fin and a.fecha_fin < hoy else a.estado }}</span></td>
+        <td class="tenue">{% if a.fecha_inicio %}{{ a.fecha_inicio|fecha_corta }} – {{ a.fecha_fin|fecha_corta }}{% else %}Al aprobarse{% endif %}</td>
+        <td>{{ a.impresiones or 0 }}</td>
+        <td>{{ a.clics or 0 }}{% if a.impresiones %} <span class="tenue">({{ '%.1f'|format(100 * (a.clics or 0) / a.impresiones) }} %)</span>{% endif %}</td>
+        <td>
+          <div class="fila" style="gap:4px;justify-content:flex-end">
+          {% if a.estado in ('activo', 'pausado') %}
+          <form method="post" action="/anuncios/{{ a.id }}/pausar"><button class="btn-icono" title="{{ 'Pausar' if a.estado == 'activo' else 'Reanudar' }}" aria-label="{{ 'Pausar' if a.estado == 'activo' else 'Reanudar' }}">{{ icono('pausa' if a.estado == 'activo' else 'play', 16) }}</button></form>
+          {% endif %}
+          <form method="post" action="/anuncios/{{ a.id }}/eliminar" data-confirmar="¿Eliminar este anuncio?"><button class="btn-icono" title="Eliminar" aria-label="Eliminar">{{ icono('basura', 16) }}</button></form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="vacio" style="padding:24px"><p>Aún no tienes anuncios.</p></div>
+  {% endif %}
+</section>
+
+<form class="card" method="post" action="/anuncios/nuevo" enctype="multipart/form-data" id="form-anuncio">
+  <section class="seccion-form">
+    <h2>{{ icono('megafono', 20) }} Nuevo anuncio</h2>
+    <div class="tipo-switch" role="radiogroup" aria-label="Tipo de anuncio">
+      <label><input type="radio" name="tipo" value="pagado" {% if not puede_gratis_todo %}checked{% endif %}><span>📣 Pagado</span></label>
+      <label><input type="radio" name="tipo" value="gratuito" {% if puede_gratis_todo %}checked{% endif %}><span>💛 Gratuito</span></label>
+    </div>
+
+    <div data-solo="pagado">
+      <div class="campo">
+        <span class="etiqueta">Plan</span>
+        <div class="opciones-radio" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
+          {% for clave, (nombre, dias, precio) in cat.PLANES_ANUNCIO.items() %}
+          <label class="opcion-radio"><input type="radio" name="plan" value="{{ clave }}" {% if loop.first %}checked{% endif %}><span style="flex-direction:column;align-items:flex-start;gap:0">{{ nombre }}<small class="tenue">S/ {{ precio }} · {{ dias }} días</small></span></label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="campo">
+        <label for="categoria_pagado">Categoría</label>
+        <select id="categoria_pagado" name="categoria_pagado">{% for k, v in cat.CATEGORIAS_ANUNCIO_PAGADO.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select>
+      </div>
+      <div class="alerta alerta-info">Tu anuncio se publica cuando el equipo de Pawbook lo revise y se confirme el pago. Te contactaremos al correo o teléfono de tu perfil.</div>
+    </div>
+
+    <div data-solo="gratuito">
+      <div class="campo">
+        <label for="categoria_gratuito">Categoría</label>
+        <select id="categoria_gratuito" name="categoria_gratuito">
+          {% for k, v in cat.CATEGORIAS_ANUNCIO_GRATUITO.items() %}
+          {% if puede_gratis_todo or k in cat.CAMPANAS_GRATIS_PARA_TODOS %}<option value="{{ k }}">{{ v }}</option>{% endif %}
+          {% endfor %}
+        </select>
+        <span class="ayuda">{% if puede_gratis_todo %}Como {{ cat.CATEGORIAS_ENTIDAD[perfil.categoria][0]|lower }}, puedes publicar anuncios gratuitos de adopción y donaciones.{% else %}Puedes anunciar gratis campañas de vacunación o esterilización que sean gratuitas para el público.{% endif %}</span>
+      </div>
+      <div class="campo">
+        <label for="fecha_fin">Fecha de término</label>
+        <input id="fecha_fin" type="date" name="fecha_fin" min="{{ hoy.isoformat() }}">
+        <span class="ayuda">Si la dejas vacía, el anuncio dura 30 días desde su aprobación.</span>
+      </div>
+    </div>
+
+    <div class="campo"><label for="titulo">Título</label><input id="titulo" type="text" name="titulo" required maxlength="120" placeholder="Ej. Jornada de adopción este sábado"></div>
+    <div class="campo"><label for="texto">Texto</label><textarea id="texto" name="texto" rows="3" maxlength="600" style="min-height:80px" placeholder="Detalles, horarios, lugar, condiciones…"></textarea></div>
+    <div class="rejilla-2">
+      <div class="campo"><label for="enlace">Enlace <span class="tenue">(opcional)</span></label><input id="enlace" type="text" name="enlace" maxlength="300" placeholder="www.tusitio.com/promo"><span class="ayuda">Si lo dejas vacío, el anuncio lleva a tu perfil.</span></div>
+      <div class="campo"><label for="imagen">Imagen <span class="tenue">(opcional, 16:9)</span></label><input id="imagen" type="file" name="imagen" accept="image/*"></div>
+    </div>
+  </section>
+  <div class="modal-pie"><button class="btn btn-primario" type="submit">Enviar a revisión</button></div>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const form = document.getElementById("form-anuncio");
+    if (!form) return;
+    const aplicar = () => {
+      const tipo = form.querySelector("input[name=tipo]:checked").value;
+      form.querySelectorAll("[data-solo]").forEach((el) => el.classList.toggle("oculto", el.dataset.solo !== tipo));
+    };
+    form.querySelectorAll("input[name=tipo]").forEach((r) => r.addEventListener("change", aplicar));
+    aplicar();
+  })();
+</script>
+{% endblock %}

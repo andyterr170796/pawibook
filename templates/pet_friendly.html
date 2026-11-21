@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block titulo %}Restaurantes pet friendly{% endblock %}
+{% block og_titulo %}Restaurantes y cafés pet friendly · Pawbook{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block contenido %}
+<div class="encabezado-pagina">
+  <div>
+    <h1>Restaurantes pet friendly</h1>
+    <p>Restaurantes y cafés donde tu mascota es bienvenida.</p>
+  </div>
+  <div class="fila envolver">
+    {% if usuario %}<a class="btn btn-secundario" href="/mapa?solo=petfriendly">{{ icono('mapa', 18) }} Ver en el mapa</a>{% endif %}
+    <a class="btn btn-primario" href="{% if usuario %}/perfil/nuevo?tipo=entidad&categoria=restaurante{% else %}/registro{% endif %}">{{ icono('mas', 18) }} Registrar mi local</a>
+  </div>
+</div>
+
+<form class="card filtros" method="get" action="/pet-friendly">
+  <div class="rejilla">
+    <div class="campo" style="grid-column:span 2">
+      <label for="q">Nombre o tipo de comida</label>
+      <input id="q" type="text" name="q" value="{{ f.q }}" placeholder="Ej. café, pizza, brunch">
+    </div>
+    <div class="campo">
+      <label for="distrito">Distrito</label>
+      <select id="distrito" name="distrito"><option value="">Todos</option>
+        {% for d in distritos %}<option {% if f.distrito == d %}selected{% endif %}>{{ d }}</option>{% endfor %}
+      </select>
+    </div>
+    <button class="btn btn-primario" type="submit">{{ icono('buscar', 18) }} Buscar</button>
+  </div>
+  <div class="capas mt" style="margin-bottom:0" role="group" aria-label="Qué debe ofrecer">
+    {% for clave, (nombre_a, emoji) in cat.AMENIDADES_PET_FRIENDLY.items() %}
+    <label class="capa" style="--color-capa:#C2255C">
+      <input type="checkbox" name="amenidad" value="{{ clave }}" {% if clave in f.amenidad %}checked{% endif %} onchange="this.form.submit()">
+      <span>{{ emoji }} {{ nombre_a }}</span>
+    </label>
+    {% endfor %}
+  </div>
+</form>
+
+<div class="fila-entre mb">
+  <h2 style="margin:0">{{ resultados|length }} lugar{% if resultados|length != 1 %}es{% endif %}</h2>
+  {% if perfil and perfil.lat is none %}<span class="tenue">Agrega tu ubicación en <a href="/perfil/{{ perfil.id }}/editar">tu perfil</a> para ordenarlos por cercanía.</span>{% endif %}
+</div>
+
+{% if resultados %}
+<div class="rejilla-lugares">
+  {% for x in resultados %}
+  <article class="card lugar-card">
+    <div class="lugar-cabecera">
+      {% if x.perfil %}<a href="/p/{{ x.perfil.handle }}" aria-label="Ver perfil de {{ x.nombre }}">{{ avatar(x.perfil, 60) }}</a>
+      {% else %}<span class="avatar avatar-emoji" style="width:60px;height:60px;font-size:30px;background:linear-gradient(135deg,#FDEBF2,#F8C2CD)" aria-hidden="true">🍽️</span>{% endif %}
+      <div style="min-width:0;flex:1">
+        {% if x.perfil %}<a class="nombre" href="/p/{{ x.perfil.handle }}">{{ x.nombre }}</a> {{ m.verificado(x.perfil, 15) }}
+        {% else %}<span class="nombre">{{ x.nombre }}</span>{% endif %}
+        <div class="tenue">{{ x.distrito or '' }}{% if x.distancia is not none %} · {{ '%.1f'|format(x.distancia) }} km{% endif %}</div>
+      </div>
+      {% if x.perfil and perfil and x.perfil.usuario_id != usuario.id %}{{ m.boton_seguir(x.perfil, x.perfil.id in ids_sigo, True) }}{% endif %}
+    </div>
+    {% if x.amenidades %}
+    <div class="chips">{% for a in x.amenidades %}{% set info = cat.AMENIDADES_PET_FRIENDLY[a] %}<span class="chip chip-rosa">{{ info[1] }} {{ info[0] }}</span>{% endfor %}</div>
+    {% endif %}
+    {% if x.descripcion %}<p class="suave" style="margin:0">{{ x.descripcion|truncate(160) }}</p>{% endif %}
+    <ul class="dato-lista">
+      {% if x.direccion %}<li>{{ icono('pin', 16) }}<div>{{ x.direccion }}</div></li>{% endif %}
+      {% if x.horario %}<li>{{ icono('reloj', 16) }}<div>{{ x.horario }}</div></li>{% endif %}
+    </ul>
+    <div class="fila envolver" style="margin-top:auto">
+      {% if x.perfil %}<a class="btn btn-suave btn-chico" href="/p/{{ x.perfil.handle }}">Ver perfil</a>{% endif %}
+      {% if x.lat is not none %}<a class="btn btn-secundario btn-chico" href="https://www.google.com/maps/dir/?api=1&destination={{ x.lat }},{{ x.lng }}" target="_blank" rel="noopener">{{ icono('externo', 14) }} Cómo llegar</a>{% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card vacio">
+  <div class="emoji">🍽️</div>
+  <p>{% if f.q or f.distrito or f.amenidad %}No encontramos lugares con esos filtros.{% else %}Todavía no hay restaurantes pet friendly registrados.{% endif %}</p>
+  <a class="btn btn-primario" href="{% if usuario %}/perfil/nuevo?tipo=entidad&categoria=restaurante{% else %}/registro{% endif %}">Registra el primero</a>
+</div>
+{% endif %}
+
+<p class="tenue mt">¿Conoces un lugar pet friendly que no está aquí? Cuéntaselo a sus dueños para que creen su perfil gratis en Pawbook.</p>
+{% endblock %}

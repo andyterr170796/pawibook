@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% set sello = cat.TIPOS_AVISO.get(r.tipo, ('', '📍', '')) %}
+{% set especie_txt = cat.ESPECIES.get(r.especie or 'otro', ('Mascota', '🐾')) %}
+{% block titulo %}{{ titulo_aviso(r) }}{% endblock %}
+{% block og_titulo %}{% if r.activo %}{{ sello[1] }} {% endif %}{{ titulo_aviso(r) }}{% if r.distrito %} · {{ r.distrito }}{% endif %} · Pawbook{% endblock %}
+{% block og_imagen %}{% if r.foto_mostrar %}{{ r.foto_mostrar[1:] }}{% else %}static/img/logo.png{% endif %}{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block head %}{% if r.lat is not none %}<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">{% endif %}{% endblock %}
+
+{% block contenido %}
+<a class="btn btn-fantasma btn-chico mb" href="/perdidos?tab={{ r.tipo if r.activo else 'reunidos' }}">{{ icono('izq', 16) }} Todos los avisos</a>
+
+{% if not r.activo %}
+<div class="banner-aviso reunido mb">
+  <span class="emoji">🎉</span>
+  <span>{% if r.es_perdido %}¡{{ r.nombre }} ya está en casa!{% else %}Esta mascota ya volvió con su familia.{% endif %} Gracias a todos los que ayudaron.{% if r.resuelto_en %} <span class="tenue">({{ r.resuelto_en|hace }})</span>{% endif %}</span>
+</div>
+{% endif %}
+
+<article class="card aviso-detalle">
+  <div class="aviso-detalle-foto">
+    {% if r.foto_mostrar %}<img src="{{ r.foto_mostrar }}" alt="Foto de {{ r.nombre or 'la mascota' }}">
+    {% else %}<span class="emoji" aria-hidden="true">{{ especie_txt[1] }}</span>{% endif %}
+    <span class="sello sello-{{ r.tipo if r.activo else 'resuelto' }}">{% if r.activo %}{{ sello[1] }} {{ sello[2] }}{% else %}🎉 Reunida{% endif %}</span>
+  </div>
+
+  <div class="aviso-detalle-info">
+    <h1>{{ titulo_aviso(r) }}</h1>
+    <div class="perfil-datos" style="margin-top:6px">
+      <span>{{ especie_txt[1] }} {{ especie_txt[0] }}{% if r.raza %} · {{ r.raza }}{% endif %}</span>
+      {% if r.sexo %}<span>{{ cat.SEXOS[r.sexo][1] }} {{ cat.SEXOS[r.sexo][0] }}</span>{% endif %}
+      {% if distancia is not none %}<span>a {{ '%.1f'|format(distancia) }} km de {{ perfil.nombre }}</span>{% endif %}
+    </div>
+    {% if r.recompensa and r.activo %}<div class="chip chip-ambar mb" style="font-size:.9rem">💰 Recompensa: {{ r.recompensa }}</div>{% endif %}
+
+    <ul class="dato-lista">
+      {% if not r.es_perdido and r.nombre %}<li>{{ icono('huella', 18) }}<div><small>Responde al nombre / placa</small>{{ r.nombre }}</div></li>{% endif %}
+      {% if r.color %}<li>{{ icono('ubicar', 18) }}<div><small>Color y señas</small>{{ r.color }}</div></li>{% endif %}
+      <li>{{ icono('calendario', 18) }}<div><small>{% if r.es_perdido %}Visto por última vez{% else %}Encontrada el{% endif %}</small>{{ fecha_larga(r.fecha)|capitalize }}{% if r.hora %} · {{ r.hora }}{% endif %}</div></li>
+      <li>{{ icono('pin', 18) }}<div><small>Lugar</small>{{ [r.referencia, r.distrito]|select|join(', ') or 'Ver mapa' }}</div></li>
+      {% if r.mascota and r.es_perdido %}<li>{{ icono('usuario', 18) }}<div><small>Perfil en Pawbook</small><a href="/p/{{ r.mascota.handle }}">@{{ r.mascota.handle }}</a></div></li>{% endif %}
+    </ul>
+
+    {% if r.activo %}
+    {% set solo_num = r.telefono|replace(' ', '')|replace('+', '')|replace('-', '')|replace('(', '')|replace(')', '') %}
+    {% set msj = 'Hola, vi en Pawbook el aviso ' ~ ('de ' ~ r.nombre if r.es_perdido else 'de la mascota encontrada en ' ~ (r.distrito or 'tu zona')) ~ ': ' ~ enlace %}
+    <div class="aviso-contacto">
+      <a class="btn btn-primario" href="https://wa.me/{{ solo_num }}?text={{ msj|urlencode }}" target="_blank" rel="noopener">{{ icono('comentario', 18) }} WhatsApp</a>
+      <a class="btn btn-secundario" href="tel:{{ r.telefono|replace(' ', '') }}">{{ icono('telefono', 18) }} {{ r.telefono }}</a>
+      <button class="btn btn-suave" type="button" data-compartir="{{ enlace }}" data-titulo="{{ titulo_aviso(r) }}">{{ icono('compartir', 18) }} Compartir</button>
+    </div>
+    {% endif %}
+
+    <div class="fila mt" style="gap:10px">
+      {% if r.autor %}<a href="/p/{{ r.autor.handle }}" aria-label="Perfil de {{ r.autor.nombre }}">{{ avatar(r.autor, 32) }}</a>{% endif %}
+      <span class="tenue">Publicado {% if r.autor %}por <a href="/p/{{ r.autor.handle }}">{{ r.autor.nombre }}</a> {% endif %}{{ r.creado|hace }}</span>
+    </div>
+  </div>
+</article>
+
+<div class="perfil-cuerpo">
+  <div class="pila">
+    {% if r.descripcion %}
+    <section class="card card-pad">
+      <h3>Más detalles</h3>
+      <div style="overflow-wrap:anywhere">{{ r.descripcion|enlazar }}</div>
+    </section>
+    {% endif %}
+    {% if r.lat is not none %}
+    <section class="card card-pad">
+      <h3>{{ icono('mapa', 18) }} Zona aproximada</h3>
+      <div id="mapa-aviso" class="mapa-mini" style="height:240px" data-lat="{{ r.lat }}" data-lng="{{ r.lng }}"></div>
+      <p class="tenue" style="margin:8px 0 0">El punto es aproximado (~100 m) para proteger la privacidad.</p>
+    </section>
+    {% endif %}
+    {% if es_mio or es_admin %}
+    <section class="card card-pad">
+      <h3>{% if es_mio %}Tu aviso{% else %}Moderación{% endif %}</h3>
+      <div class="fila envolver">
+        {% if es_mio %}
+        <form method="post" action="/perdidos/{{ r.id }}/resolver" {% if r.activo %}data-confirmar="{% if r.es_perdido %}¿{{ r.nombre }} ya volvió a casa?{% else %}¿La mascota ya volvió con su familia?{% endif %}"{% endif %}>
+          {% if r.activo %}<button class="btn btn-ambar btn-chico">🎉 {% if r.es_perdido %}¡Ya apareció!{% else %}Ya volvió con su familia{% endif %}</button>
+          {% else %}<button class="btn btn-secundario btn-chico">Reactivar aviso</button>{% endif %}
+        </form>
+        <a class="btn btn-secundario btn-chico" href="/perdidos/{{ r.id }}/editar">{{ icono('editar', 14) }} Editar</a>
+        {% endif %}
+        <form method="post" action="/perdidos/{{ r.id }}/eliminar" data-confirmar="¿Eliminar este aviso para siempre?">
+          <button class="btn btn-peligro btn-chico">{{ icono('basura', 14) }} Eliminar</button>
+        </form>
+      </div>
+    </section>
+    {% endif %}
+  </div>
+
+  <div>
+    {% if parecidos %}
+    <section class="card card-pad">
+      <div class="card-titulo"><h3>{{ icono('buscar', 18) }} Podrían ser la misma mascota</h3></div>
+      <p class="suave" style="margin-top:-4px">Avisos de {% if r.es_perdido %}mascotas encontradas{% else %}mascotas perdidas{% endif %} de la misma especie cerca de esta zona.</p>
+      <div class="rejilla-avisos compacta">
+        {% for x in parecidos %}{{ m.tarjeta_aviso(x, compacta=True) }}{% endfor %}
+      </div>
+    </section>
+    {% elif r.activo %}
+    <section class="card card-pad">
+      <h3>¿Cómo puedes ayudar?</h3>
+      <ul class="lista-ayuda">
+        <li><b>Comparte este aviso</b> en tus grupos del barrio: mientras más personas lo vean, mejor.</li>
+        {% if r.es_perdido %}
+        <li><b>Mira con atención</b> si pasas por {{ r.distrito or 'la zona' }}: debajo de autos, parques y cocheras.</li>
+        <li><b>Si {{ 'la' if r.sexo == 'hembra' else 'lo' }} ves</b>, no {{ 'la' if r.sexo == 'hembra' else 'lo' }} persigas: avisa de inmediato por WhatsApp con la ubicación.</li>
+        {% else %}
+        <li><b>¿Reconoces a esta mascota?</b> Escribe por WhatsApp a quien la encontró.</li>
+        <li><b>Si es tuya</b>, ten a mano fotos o su carnet de vacunas para confirmar que es ella.</li>
+        {% endif %}
+      </ul>
+      {% if not usuario %}<a class="btn btn-ambar btn-chico mt" href="/registro">Únete a Pawbook para recibir alertas de tu zona</a>{% endif %}
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if r.lat is not none %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+  (function () {
+    const el = document.getElementById("mapa-aviso");
+    if (!el || !window.L) return;
+    const ll = [parseFloat(el.dataset.lat), parseFloat(el.dataset.lng)];
+    const mapa = L.map(el, { scrollWheelZoom: false }).setView(ll, 15);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(mapa);
+    L.circle(ll, { radius: 180, color: "#D9480F", fillColor: "#D9480F", fillOpacity: 0.18, weight: 2 }).addTo(mapa);
+  })();
+</script>
+{% endif %}
+{% endblock %}

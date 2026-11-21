@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block titulo %}Búsqueda de pareja{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block contenido %}
+<div class="encabezado-pagina">
+  <div><h1>Búsqueda de pareja</h1><p>Conecta con mascotas compatibles de forma responsable.</p></div>
+</div>
+
+{% if not perfil.es_mascota %}
+<div class="card vacio">
+  <div class="emoji">💞</div>
+  <p>La búsqueda de pareja es para perfiles de mascota. Cambia a una de tus mascotas desde el menú de perfil.</p>
+  <a class="btn btn-primario" href="/mis-perfiles">Mis perfiles</a>
+</div>
+{% else %}
+<section class="card pareja-hero mb">
+  <span class="emoji">💞</span>
+  <div class="texto">
+    <h2>{% if perfil.busca_pareja %}{{ perfil.nombre }} está buscando pareja{% else %}Activa la alerta para {{ perfil.nombre }}{% endif %}</h2>
+    <p>{% if perfil.busca_pareja %}Te avisaremos cuando aparezcan mascotas compatibles: {{ cat.ESPECIES[perfil.especie][0]|lower }}{% if perfil.sexo %}, {{ 'hembras' if perfil.sexo == 'macho' else 'machos' }}{% endif %}, mayores de 1 año.{% else %}Solo verás candidatos si tu mascota también participa. Así ambas familias están de acuerdo.{% endif %}</p>
+  </div>
+  <form method="post" action="/pareja/estado">
+    <input type="hidden" name="activar" value="{{ '0' if perfil.busca_pareja else '1' }}">
+    <button class="btn {% if perfil.busca_pareja %}btn-secundario{% else %}btn-primario{% endif %}">{% if perfil.busca_pareja %}Desactivar búsqueda{% else %}Activar búsqueda{% endif %}</button>
+  </form>
+</section>
+
+{% if edad is not none and edad < 1 %}
+<div class="alerta alerta-ambar">{{ perfil.nombre }} aún no cumple 1 año. Podrá ver candidatos cuando sea adulto.</div>
+{% endif %}
+{% if not perfil.sexo %}
+<div class="alerta alerta-ambar">Indica el sexo de {{ perfil.nombre }} en <a href="/perfil/{{ perfil.id }}/editar">su perfil</a> para encontrar parejas compatibles.</div>
+{% endif %}
+
+{% if perfil.busca_pareja %}
+  {% if recibidos %}
+  <section class="card card-pad mb">
+    <div class="card-titulo"><h3>💌 Interesados en {{ perfil.nombre }}</h3></div>
+    {% for r in recibidos %}
+    <div class="perfil-fila">
+      <a href="/p/{{ r.handle }}">{{ avatar(r, 42) }}</a>
+      <div class="info"><a href="/p/{{ r.handle }}">{{ r.nombre }}</a><span>{{ m.subtitulo(r) }}</span></div>
+      {% if r.id in matches %}<span class="chip chip-rosa">🎉 Match</span>
+      {% else %}<button type="button" class="btn btn-suave btn-chico btn-interes" data-interes="{{ r.id }}">💞 <span class="txt">Me interesa también</span></button>{% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <form class="fila envolver mb" method="get" action="/pareja">
+    <label class="check" style="margin-right:12px"><input type="checkbox" name="misma_raza" value="1" {% if misma_raza %}checked{% endif %} onchange="this.form.submit()"> Solo {{ perfil.raza or 'misma raza' }}</label>
+    <select class="input" name="cerca" style="width:auto" onchange="this.form.submit()" aria-label="Distancia">
+      <option value="">Cualquier distancia</option>
+      {% for km in ['3', '5', '10', '25', '50'] %}<option value="{{ km }}" {% if cerca == km %}selected{% endif %}>A menos de {{ km }} km</option>{% endfor %}
+    </select>
+    <noscript><button class="btn btn-secundario btn-chico">Filtrar</button></noscript>
+  </form>
+
+  {% if candidatos %}
+  <div class="rejilla-perfiles">
+    {% for c in candidatos %}
+    <div class="card tarjeta-perfil">
+      {% if c.distancia is not none %}<span class="distancia">{{ '%.1f'|format(c.distancia) }} km</span>{% endif %}
+      <a href="/p/{{ c.handle }}">{{ avatar(c, 84) }}</a>
+      <a class="nombre" href="/p/{{ c.handle }}">{{ c.nombre }}</a>
+      <div class="sub">{{ m.subtitulo(c) }}</div>
+      <div class="chips">{% if c.misma_raza %}<span class="chip chip-verde">Misma raza</span>{% endif %}{% for t in c.lista_tags[:2] %}<span class="chip chip-ambar">#{{ t }}</span>{% endfor %}</div>
+      {% if c.id in matches %}
+      <span class="chip chip-rosa">🎉 ¡Es un match!</span>
+      {% else %}
+      <button type="button" class="btn btn-chico btn-interes {% if c.id in enviados_ids %}enviado{% else %}btn-suave{% endif %}" data-interes="{{ c.id }}" {% if c.id in enviados_ids %}disabled{% endif %}>💞 <span class="txt">{% if c.id in enviados_ids %}Interés enviado{% else %}Me interesa{% endif %}</span></button>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card vacio"><div class="emoji">🔍</div><p>Por ahora no hay mascotas compatibles con estos filtros. Te avisaremos cuando aparezca alguna.</p></div>
+  {% endif %}
+{% endif %}
+
+<p class="tenue mt">Pawbook promueve la crianza responsable: antes de cruzar, consulta con tu veterinario, verifica vacunas y salud de ambas mascotas, y considera la esterilización si no planeas cuidar camadas. Hay muchas mascotas esperando adopción 💛</p>
+{% endif %}
+{% endblock %}

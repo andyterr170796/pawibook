@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block titulo %}Inicio{% endblock %}
+
+{% block contenido %}
+<form class="card compositor" method="post" action="/publicar" enctype="multipart/form-data">
+  <div class="fila" style="align-items:flex-start;gap:12px">
+    {{ avatar(perfil, 44) }}
+    <div style="flex:1;min-width:0">
+      <label class="sr" for="texto-post">¿Qué cuenta {{ perfil.nombre }} hoy?</label>
+      <textarea id="texto-post" name="texto" rows="2" maxlength="3000" placeholder="¿Qué cuenta {{ perfil.nombre }} hoy?"></textarea>
+      <div class="vista-previa oculto">
+        <img alt="Vista previa de la foto">
+        <button type="button" class="btn btn-secundario btn-chico">{{ icono('cerrar', 16) }} Quitar</button>
+      </div>
+    </div>
+  </div>
+  <div class="compositor-pie">
+    <label class="btn btn-fantasma btn-chico" style="cursor:pointer">
+      {{ icono('imagen', 18) }} Foto
+      <input type="file" name="imagen" accept="image/*" class="sr">
+    </label>
+    <button class="btn btn-primario btn-chico" type="submit">Publicar</button>
+  </div>
+</form>
+
+{% if not posts and not descubre %}
+<div class="card vacio">
+  <div class="emoji">🐾</div>
+  <h3>Tu inicio está muy tranquilo</h3>
+  <p>Sigue a otras mascotas y entidades para ver sus publicaciones aquí.</p>
+  <a class="btn btn-primario" href="/buscar">Buscar amigos</a>
+</div>
+{% endif %}
+
+{% for post in posts %}
+  {{ m.publicacion(post) }}
+  {% if loop.index == 3 and patrocinado_feed %}{{ m.anuncio_lateral(patrocinado_feed) }}<div class="mb"></div>{% endif %}
+{% endfor %}
+
+{% if mas_antiguo %}
+<div class="cargar-mas"><a class="btn btn-secundario" href="/?antes={{ mas_antiguo }}">Ver publicaciones anteriores</a></div>
+{% endif %}
+
+{% if descubre %}
+<div class="separador-feed">Descubre en Pawbook</div>
+{% set sigo = [] %}
+{% for post in descubre %}{{ m.publicacion(post, descubre=True, ids_sigo=sigo) }}{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block derecha %}
+<aside class="columna-derecha" aria-label="Información adicional">
+  <section class="card card-pad">
+    <div class="card-titulo"><h3>{{ icono('calendario', 18) }} Próximamente</h3><a href="/calendario">Calendario</a></div>
+    {% if proximos %}
+      {% for it in proximos %}{{ m.evento_item(it) }}{% endfor %}
+    {% else %}
+      <p class="tenue" style="margin:0">Sin eventos en los próximos 30 días. <a href="/calendario">Agenda una cita o vacuna</a>.</p>
+    {% endif %}
+  </section>
+
+  {% if avisos_cerca %}
+  <section class="card card-pad">
+    <div class="card-titulo"><h3>{{ icono('alerta', 18) }} Perdidos cerca</h3><a href="/perdidos">Ver todos</a></div>
+    {% for r in avisos_cerca %}
+    <a class="campana" href="/perdidos/{{ r.id }}" style="text-decoration:none;color:inherit">
+      {% if r.foto_mostrar %}<img class="avatar" src="{{ r.foto_mostrar }}" alt="" width="40" height="40" style="width:40px;height:40px;border-radius:12px">
+      {% else %}<span class="emoji" style="background:var(--rojo-50)">{{ cat.TIPOS_AVISO[r.tipo][1] }}</span>{% endif %}
+      <span><strong>{{ titulo_aviso(r) }}</strong><p>{{ cat.TIPOS_AVISO[r.tipo][2] }} · {{ r.distrito or 'cerca de ti' }} · {{ fecha_corta(r.fecha) }}</p></span>
+    </a>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if patrocinado_lateral %}{{ m.anuncio_lateral(patrocinado_lateral) }}{% endif %}
+
+  {% if campanas %}
+  <section class="card card-pad">
+    <div class="card-titulo"><h3>💛 Campañas solidarias</h3></div>
+    {% for a in campanas %}
+    <a class="campana" href="/anuncio/{{ a.id }}/ir" style="text-decoration:none;color:inherit">
+      <span class="emoji">{% if a.categoria == 'adopcion' %}🏠{% elif a.categoria == 'campana_vacunacion' %}💉{% elif a.categoria == 'campana_esterilizacion' %}🩺{% else %}💛{% endif %}</span>
+      <span><strong>{{ a.titulo }}</strong><p>{{ a.anunciante.nombre }}</p></span>
+    </a>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if sugerencias %}
+  <section class="card card-pad">
+    <div class="card-titulo"><h3>{{ icono('huella', 18) }} Te podrían gustar</h3><a href="/buscar">Ver más</a></div>
+    {% for s in sugerencias %}{{ m.fila_perfil(s) }}{% endfor %}
+  </section>
+  {% endif %}
+</aside>
+{% endblock %}

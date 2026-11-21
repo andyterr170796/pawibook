@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titulo %}Nuevo perfil{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block contenido %}
+<div class="encabezado-pagina">
+  <div>
+    <h1>{% if bienvenida %}¡Bienvenido, {{ usuario.nombre.split()[0] }}! 👋{% else %}Crear un perfil{% endif %}</h1>
+    <p>{% if bienvenida %}Empecemos creando tu primer perfil. Luego podrás agregar más desde “Mis perfiles”.{% else %}Una misma cuenta puede manejar varias mascotas y entidades.{% endif %}</p>
+  </div>
+</div>
+<div class="elegir">
+  <a class="card opcion-tipo" href="/perfil/nuevo?tipo=mascota">
+    <div class="emoji">🐶🐱</div>
+    <h2>Perfil de mascota</h2>
+    <p>Foto, raza, edad, cumpleaños, tags y publicaciones. Encuentra amigos, pareja y lleva su calendario de salud.</p>
+  </a>
+  <a class="card opcion-tipo" href="/perfil/nuevo?tipo=entidad">
+    <div class="emoji">🩺🏠</div>
+    <h2>Perfil de entidad</h2>
+    <p>Centros de adopción, veterinarias, tiendas, entrenadores, paseadores, marcas y ONG. Aparece en el mapa y publica anuncios.</p>
+  </a>
+</div>
+{% endblock %}

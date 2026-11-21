@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block titulo %}Mapa{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block head %}<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">{% endblock %}
+{% block contenido %}
+<div class="encabezado-pagina">
+  <div><h1>Mapa pet friendly</h1><p>Veterinarias, tiendas, parques, restaurantes pet friendly, mascotas perdidas y amigos cerca de {{ perfil.nombre }}.</p></div>
+  <button class="btn btn-secundario" type="button" id="btn-ubicarme">{{ icono('ubicar', 18) }} Mi ubicación</button>
+</div>
+<div class="capas" id="capas" role="group" aria-label="Capas del mapa">
+  {% for clave, (nombre, emoji, color) in cat.CAPAS_MAPA.items() %}
+  <label class="capa" style="--color-capa:{{ color }}">
+    <input type="checkbox" value="{{ clave }}" checked>
+    <span>{{ emoji }} {{ nombre }}</span><span class="n" data-n="{{ clave }}">0</span>
+  </label>
+  {% endfor %}
+</div>
+<div id="mapa" class="mapa-pagina card" aria-label="Mapa"></div>
+{% if perfil.lat is none %}
+<p class="tenue mt">Consejo: agrega la ubicación de {{ perfil.nombre }} en <a href="/perfil/{{ perfil.id }}/editar">su perfil</a> para centrar el mapa en tu zona y ver amigos cerca.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+  (async function () {
+    if (!window.L) return;
+    const mapa = L.map("mapa").setView({{ cat.CENTRO_MAPA|list|tojson }}, 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19, attribution: "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
+    }).addTo(mapa);
+
+    const r = await fetch("/api/mapa");
+    if (!r.ok) return;
+    const datos = await r.json();
+    mapa.setView(datos.centro, 13);
+    const grupos = {};
+    Object.keys(datos.capas).forEach((k) => { grupos[k] = L.layerGroup().addTo(mapa); });
+
+    function el(tag, clase, texto) { const n = document.createElement(tag); if (clase) n.className = clase; if (texto) n.textContent = texto; return n; }
+
+    datos.marcadores.forEach((mk) => {
+      const capa = datos.capas[mk.capa] || ["", "📍", "#023E90"];
+      const html = document.createElement("div");
+      html.className = "marcador" + (mk.capa === "amigos" || mk.foto ? " amigo" : "");
+      html.style.background = capa[2];
+      if (mk.foto) { const img = document.createElement("img"); img.src = mk.foto; img.alt = ""; html.appendChild(img); }
+      else { html.appendChild(el("span", "", mk.emoji || capa[1])); }
+      const icono = L.divIcon({ html: html.outerHTML, className: "", iconSize: [38, 38], iconAnchor: [19, 38], popupAnchor: [0, -34] });
+
+      const pop = el("div", "popup");
+      pop.appendChild(el("b", "", mk.nombre + (mk.verificada ? " ✓" : "")));
+      pop.appendChild(el("small", "", mk.sub));
+      if (mk.horario) pop.appendChild(el("div", "tenue", mk.horario));
+      const acciones = el("div", "fila");
+      acciones.style.marginTop = "8px";
+      if (mk.url) { const a = el("a", "btn btn-primario btn-chico", mk.boton || "Ver perfil"); a.href = mk.url; a.style.color = "#fff"; acciones.appendChild(a); }
+      if (mk.capa !== "amigos" && !mk.sin_ruta) {
+        const ir = el("a", "btn btn-secundario btn-chico", "Cómo llegar");
+        ir.href = `https://www.google.com/maps/dir/?api=1&destination=${mk.lat},${mk.lng}`;
+        ir.target = "_blank"; ir.rel = "noopener";
+        acciones.appendChild(ir);
+      }
+      pop.appendChild(acciones);
+      L.marker([mk.lat, mk.lng], { icon: icono, title: mk.nombre }).bindPopup(pop).addTo(grupos[mk.capa] || mapa);
+    });
+
+    const conteo = {};
+    datos.marcadores.forEach((mk) => { conteo[mk.capa] = (conteo[mk.capa] || 0) + 1; });
+    document.querySelectorAll("[data-n]").forEach((n) => { n.textContent = conteo[n.dataset.n] || 0; });
+
+    const aplicarCapa = (chk) => {
+      const g = grupos[chk.value];
+      if (!g) return;
+      if (chk.checked) g.addTo(mapa); else mapa.removeLayer(g);
+    };
+    // /mapa?solo=petfriendly muestra solo esa capa
+    const solo = new URLSearchParams(location.search).get("solo");
+    document.querySelectorAll("#capas input").forEach((chk) => {
+      if (solo && datos.capas[solo]) { chk.checked = chk.value === solo; aplicarCapa(chk); }
+      chk.addEventListener("change", () => aplicarCapa(chk));
+    });
+
+    let yo = null;
+    document.getElementById("btn-ubicarme").addEventListener("click", () => {
+      if (!navigator.geolocation) return window.pawToast("Tu navegador no permite obtener la ubicación.", "error");
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const ll = [pos.coords.latitude, pos.coords.longitude];
+        if (yo) yo.setLatLng(ll);
+        else yo = L.circleMarker(ll, { radius: 9, color: "#fff", weight: 3, fillColor: "#F5A301", fillOpacity: 1 }).addTo(mapa).bindPopup("Estás aquí");
+        mapa.setView(ll, 15);
+      }, () => window.pawToast("No pudimos obtener tu ubicación.", "error"), { enableHighAccuracy: true, timeout: 8000 });
+    });
+  })();
+</script>
+{% endblock %}

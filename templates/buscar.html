@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block titulo %}Buscar{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block contenido %}
+<div class="encabezado-pagina">
+  <div><h1>Buscar amigos</h1><p>Encuentra mascotas por raza, edad o cercanía, y entidades por categoría.</p></div>
+</div>
+
+<form class="card filtros" method="get" action="/buscar" id="form-buscar">
+  <div class="tipo-switch" role="radiogroup" aria-label="Tipo de perfil">
+    {% for valor, texto in [('mascota', '🐾 Mascotas'), ('entidad', '⭐ Entidades'), ('todos', 'Todos')] %}
+    <label><input type="radio" name="tipo" value="{{ valor }}" {% if f.tipo == valor %}checked{% endif %}><span>{{ texto }}</span></label>
+    {% endfor %}
+  </div>
+  <div class="rejilla">
+    <div class="campo" style="grid-column:span 2">
+      <label for="q">Nombre, raza o tag</label>
+      <input id="q" type="text" name="q" value="{{ f.q }}" placeholder="Ej. golden, #playa, Luna">
+    </div>
+    <div class="campo" data-solo="mascota">
+      <label for="especie">Especie</label>
+      <select id="especie" name="especie"><option value="">Todas</option>
+        {% for clave, (nombre, emoji) in cat.ESPECIES.items() %}<option value="{{ clave }}" {% if f.especie == clave %}selected{% endif %}>{{ emoji }} {{ nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="campo" data-solo="mascota">
+      <label for="raza">Raza</label>
+      <input id="raza" type="text" name="raza" value="{{ f.raza }}" list="todas-razas" placeholder="Cualquiera">
+      <datalist id="todas-razas">{% for lista in cat.RAZAS.values() %}{% for r in lista %}<option value="{{ r }}">{% endfor %}{% endfor %}</datalist>
+    </div>
+    <div class="campo" data-solo="mascota">
+      <label for="sexo">Sexo</label>
+      <select id="sexo" name="sexo"><option value="">Ambos</option>
+        {% for clave, (nombre, simbolo) in cat.SEXOS.items() %}<option value="{{ clave }}" {% if f.sexo == clave %}selected{% endif %}>{{ simbolo }} {{ nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="campo" data-solo="mascota">
+      <label for="edad_min">Edad (años)</label>
+      <div class="fila" style="gap:6px">
+        <input id="edad_min" type="number" name="edad_min" min="0" max="30" value="{{ f.edad_min }}" placeholder="Mín" aria-label="Edad mínima">
+        <input type="number" name="edad_max" min="0" max="30" value="{{ f.edad_max }}" placeholder="Máx" aria-label="Edad máxima">
+      </div>
+    </div>
+    <div class="campo" data-solo="entidad">
+      <label for="categoria">Categoría</label>
+      <select id="categoria" name="categoria"><option value="">Todas</option>
+        {% for clave, (nombre, emoji) in cat.CATEGORIAS_ENTIDAD.items() %}<option value="{{ clave }}" {% if f.categoria == clave %}selected{% endif %}>{{ emoji }} {{ nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="campo">
+      <label for="cerca">Cercanía</label>
+      <select id="cerca" name="cerca">
+        <option value="">Cualquier lugar</option>
+        <option value="distrito" {% if f.cerca == 'distrito' %}selected{% endif %}>Mi distrito{% if perfil.distrito %} ({{ perfil.distrito }}){% endif %}</option>
+        {% for km in ['1', '3', '5', '10', '25'] %}<option value="{{ km }}" {% if f.cerca == km %}selected{% endif %}>A menos de {{ km }} km</option>{% endfor %}
+      </select>
+    </div>
+    <div class="campo">
+      <label for="pais">País</label>
+      <select id="pais" name="pais"><option value="">Todos</option>{% for p in cat.PAISES %}<option {% if f.pais == p %}selected{% endif %}>{{ p }}</option>{% endfor %}</select>
+    </div>
+    <button class="btn btn-primario" type="submit">{{ icono('buscar', 18) }} Buscar</button>
+  </div>
+  {% if sin_ubicacion and f.cerca and f.cerca != 'distrito' %}
+  <div class="alerta alerta-ambar mt" style="margin-bottom:0">Para buscar por distancia, agrega la ubicación de {{ perfil.nombre }} en <a href="/perfil/{{ perfil.id }}/editar">su perfil</a>.</div>
+  {% endif %}
+</form>
+
+<div class="fila-entre mb">
+  <h2 style="margin:0">{{ total }} resultado{% if total != 1 %}s{% endif %}</h2>
+  {% if total > resultados|length %}<span class="tenue">Mostrando {{ resultados|length }}. Afina los filtros para ver otros.</span>{% endif %}
+</div>
+{% if resultados %}
+<div class="rejilla-perfiles">
+  {% for pf in resultados %}{{ m.tarjeta_perfil(pf, pf.id in ids_sigo, pf.distancia) }}{% endfor %}
+</div>
+{% else %}
+<div class="card vacio"><div class="emoji">🔎</div><p>No encontramos perfiles con esos filtros. Prueba ampliando la búsqueda.</p></div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const form = document.getElementById("form-buscar");
+    const aplicar = () => {
+      const tipo = form.querySelector("input[name=tipo]:checked").value;
+      form.querySelectorAll("[data-solo]").forEach((el) => {
+        const visible = el.dataset.solo === tipo;
+        el.classList.toggle("oculto", !visible);
+        el.querySelectorAll("input,select").forEach((i) => { i.disabled = !visible; });
+      });
+    };
+    form.querySelectorAll("input[name=tipo]").forEach((r) => r.addEventListener("change", aplicar));
+    aplicar();
+  })();
+</script>
+{% endblock %}

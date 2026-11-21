@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Inicio{% endblock %} · Pawbook</title>
+  <meta name="description" content="Pawbook: la red social para mascotas. Perfiles, amigos, calendario de vacunas, mapa de veterinarias y parques.">
+  <meta name="theme-color" content="#023E90">
+  <meta property="og:title" content="{% block og_titulo %}Pawbook · la red social de tu mascota{% endblock %}">
+  <meta property="og:image" content="{{ request.base_url }}{% block og_imagen %}static/img/logo.png{% endblock %}">
+  <link rel="icon" href="/static/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="/static/img/icono.png">
+  <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/pawbook.css?v=3">
+  {% block head %}{% endblock %}
+</head>
+<body>
+{% import "_macros.html" as m with context %}
+{% block cuerpo %}
+
+{% if usuario %}
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="marca" href="/" aria-label="Pawbook, ir al inicio"><img src="/static/img/logo.png" alt="Pawbook" width="138" height="40"></a>
+    <form class="buscador" action="/buscar" method="get" role="search">
+      {{ icono('buscar', 18) }}
+      <input type="search" name="q" placeholder="Busca mascotas, razas, veterinarias…" aria-label="Buscar en Pawbook">
+      <input type="hidden" name="tipo" value="todos">
+    </form>
+    <div class="acciones-top">
+      <a class="btn-icono solo-escritorio {% if ruta == '/' %}activo{% endif %}" href="/" title="Inicio" aria-label="Inicio">{{ icono('inicio', 22) }}</a>
+      <a class="btn-icono solo-escritorio {% if ruta == '/mapa' %}activo{% endif %}" href="/mapa" title="Mapa" aria-label="Mapa">{{ icono('mapa', 22) }}</a>
+      <a class="btn-icono {% if ruta == '/notificaciones' %}activo{% endif %}" href="/notificaciones" title="Notificaciones" aria-label="Notificaciones{% if notif_sin_leer %}, {{ notif_sin_leer }} sin leer{% endif %}">
+        {{ icono('campana', 22) }}{% if notif_sin_leer %}<span class="contador">{{ notif_sin_leer if notif_sin_leer < 100 else '99+' }}</span>{% endif %}
+      </a>
+      {% if perfil %}
+      <div class="selector">
+        <button type="button" aria-haspopup="true" aria-expanded="false" aria-label="Cambiar de perfil">
+          {{ avatar(perfil, 34) }}<span class="nombre">{{ perfil.nombre }}</span>{{ icono('abajo', 16) }}
+        </button>
+        <div class="menu oculto">
+          <div class="menu-titulo">Usar Pawbook como</div>
+          {% for pf in mis_perfiles %}
+          <form method="post" action="/perfil/activar/{{ pf.id }}">
+            <button class="menu-item {% if pf.id == perfil.id %}actual{% endif %}">
+              {{ avatar(pf, 36) }}
+              <span><b>{{ pf.nombre }}</b><small>{{ m.tipo_corto(pf) }}</small></span>
+              {% if pf.id == perfil.id %}<span style="margin-left:auto;color:var(--ambar-600)">{{ icono('check', 18) }}</span>{% endif %}
+            </button>
+          </form>
+          {% endfor %}
+          <a class="menu-item" href="/perfil/nuevo">{{ icono('mas', 18) }} Crear otro perfil</a>
+          <hr>
+          <a class="menu-item" href="/p/{{ perfil.handle }}">{{ icono('usuario', 18) }} Ver mi perfil</a>
+          <a class="menu-item" href="/perfil/{{ perfil.id }}/editar">{{ icono('editar', 18) }} Editar perfil</a>
+          <a class="menu-item" href="/mis-perfiles">{{ icono('cambiar', 18) }} Mis perfiles</a>
+          <div class="solo-movil">
+            <hr>
+            <div class="menu-titulo">Explorar</div>
+            <a class="menu-item" href="/perdidos">{{ icono('alerta', 18) }} Perdidos y encontrados</a>
+            <a class="menu-item" href="/pet-friendly">{{ icono('cubiertos', 18) }} Restaurantes pet friendly</a>
+            {% if perfil.es_mascota %}<a class="menu-item" href="/pareja">{{ icono('corazon', 18) }} Pareja</a>{% endif %}
+            <a class="menu-item" href="/anuncios">{{ icono('megafono', 18) }} Anuncios</a>
+          </div>
+          {% if usuario.es_admin %}<a class="menu-item" href="/admin">{{ icono('escudo', 18) }} Administración</a>{% endif %}
+          <hr>
+          <a class="menu-item" href="/cuenta">{{ icono('escudo', 18) }} Mi cuenta y contraseña</a>
+          <form method="post" action="/logout">
+            <button class="menu-item" type="submit">{{ icono('salir', 18) }} Cerrar sesión</button>
+          </form>
+        </div>
+      </div>
+      {% else %}
+      <a class="btn btn-fantasma btn-chico" href="/cuenta">{{ icono('escudo', 16) }} Mi cuenta</a>
+      <form method="post" action="/logout" class="form-en-linea">
+        <button class="btn btn-fantasma btn-chico" type="submit">{{ icono('salir', 16) }} Salir</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<div class="shell {% block shell_clase %}{% endblock %}">
+  <aside class="lateral" aria-label="Navegación principal">
+    {% if perfil %}
+    <a class="card mini-perfil" href="/p/{{ perfil.handle }}" style="text-decoration:none">
+      {{ avatar(perfil, 46, 'avatar-borde') }}
+      <span style="min-width:0"><strong>{{ perfil.nombre }}</strong><span class="tenue">@{{ perfil.handle }}</span></span>
+    </a>
+    {% endif %}
+    <nav class="nav-lateral">
+      {{ m.nav('/', 'inicio', 'Inicio') }}
+      {% if perfil %}{{ m.nav('/p/' ~ perfil.handle, 'usuario', 'Mi perfil') }}{% endif %}
+      {{ m.nav('/amigos', 'usuarios', 'Amigos') }}
+      {{ m.nav('/buscar', 'buscar', 'Buscar') }}
+      {% if perfil and perfil.es_mascota %}{{ m.nav('/pareja', 'corazon', 'Pareja') }}{% endif %}
+      {{ m.nav('/calendario', 'calendario', 'Calendario') }}
+      {{ m.nav('/mapa', 'mapa', 'Mapa') }}
+      {{ m.nav('/pet-friendly', 'cubiertos', 'Pet friendly') }}
+      {{ m.nav('/perdidos', 'alerta', 'Perdidos') }}
+      {{ m.nav('/notificaciones', 'campana', 'Notificaciones', notif_sin_leer) }}
+      <div class="sep"></div>
+      {{ m.nav('/anuncios', 'megafono', 'Anuncios') }}
+      <a href="#" data-abrir-pawi>{{ icono('chispas', 20) }} Pregúntale a Pawi</a>
+      {{ m.nav('/mis-perfiles', 'cambiar', 'Mis perfiles') }}
+      {% if usuario.es_admin %}{{ m.nav('/admin', 'escudo', 'Administración', pendientes_admin) }}{% endif %}
+    </nav>
+    <p class="pie-pagina">Pawbook · {{ hoy.year }}</p>
+  </aside>
+{% else %}
+<header class="topbar">
+  <div class="topbar-in" style="grid-template-columns:auto 1fr auto">
+    <a class="marca" href="/"><img src="/static/img/logo.png" alt="Pawbook" width="138" height="40"></a>
+    <nav class="nav-publica" aria-label="Páginas públicas">
+      <a href="/perdidos" class="{% if ruta.startswith('/perdidos') %}activo{% endif %}">{{ icono('alerta', 18) }}<span>Perdidos</span></a>
+      <a href="/pet-friendly" class="{% if ruta == '/pet-friendly' %}activo{% endif %}">{{ icono('cubiertos', 18) }}<span>Pet friendly</span></a>
+    </nav>
+    <div class="acciones-top">
+      <a class="btn btn-fantasma btn-chico" href="/login?next={{ ruta }}">Iniciar sesión</a>
+      <a class="btn btn-ambar btn-chico" href="/registro">Crear cuenta</a>
+    </div>
+  </div>
+</header>
+<div class="shell publico">
+{% endif %}
+
+  <main class="principal" id="contenido">
+    {% block contenido %}{% endblock %}
+  </main>
+
+{% if usuario %}
+  {% block derecha %}{% endblock %}
+</div>
+
+<nav class="tabbar" aria-label="Navegación">
+  <a href="/" class="{% if ruta == '/' %}activo{% endif %}">{{ icono('inicio', 22) }}Inicio</a>
+  <a href="/buscar" class="{% if ruta == '/buscar' %}activo{% endif %}">{{ icono('buscar', 22) }}Buscar</a>
+  <a href="/calendario" class="{% if ruta == '/calendario' %}activo{% endif %}">{{ icono('calendario', 22) }}Calendario</a>
+  <a href="/mapa" class="{% if ruta == '/mapa' %}activo{% endif %}">{{ icono('mapa', 22) }}Mapa</a>
+  <a href="/amigos" class="{% if ruta == '/amigos' %}activo{% endif %}">{{ icono('usuarios', 22) }}Amigos</a>
+</nav>
+
+<button id="pawi-boton" class="pawi-boton" type="button" aria-label="Abrir asistente Pawi">
+  <img src="/static/img/icono.png" alt="" width="44" height="44"><span class="txt">Pregúntale a Pawi</span>
+</button>
+<section id="pawi-panel" class="pawi-panel oculto" aria-label="Asistente Pawi">
+  <div class="pawi-cabecera">
+    <img src="/static/img/icono.png" alt="" width="42" height="42">
+    <div><b>Pawi</b><small>{% if asistente_activo %}Tu asistente de Pawbook{% else %}Sin configurar{% endif %}</small></div>
+    <button class="btn-icono" type="button" data-limpiar-pawi title="Nueva conversación" aria-label="Nueva conversación">{{ icono('cambiar', 18) }}</button>
+    <button class="btn-icono" type="button" data-cerrar-pawi title="Cerrar" aria-label="Cerrar asistente" style="margin-left:0">{{ icono('cerrar', 20) }}</button>
+  </div>
+  <div class="pawi-mensajes" aria-live="polite">
+    <div class="msg-pawi msg" style="max-width:100%" data-fijo>
+      <p>¡Hola! Soy <b>Pawi</b> 🐾 Puedo darte consejos de cuidado, encontrar veterinarias, tiendas o parques en Pawbook y agendar citas o vacunas en tu calendario.</p>
+    </div>
+    <div class="pawi-sugerencias">
+      <button type="button">¿Cada cuánto debo vacunar a mi perro?</button>
+      <button type="button">Veterinarias en Miraflores</button>
+      {% if perfil and perfil.es_mascota %}<button type="button">Agenda un baño para {{ perfil.nombre }} el próximo sábado a las 10</button>{% endif %}
+      <button type="button">¿Dónde puedo adoptar?</button>
+      <button type="button">Restaurantes pet friendly cerca</button>
+    </div>
+  </div>
+  <form class="pawi-form">
+    <textarea rows="1" placeholder="Escribe tu pregunta…" aria-label="Mensaje para Pawi" maxlength="4000"></textarea>
+    <button type="submit" aria-label="Enviar">{{ icono('enviar', 20) }}</button>
+  </form>
+  <div class="pawi-aviso">Pawi orienta, no reemplaza al veterinario. Ante una emergencia, acude a una clínica.</div>
+</section>
+{% else %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% if flash %}
+<div class="toast {% if flash.tipo == 'error' %}error{% endif %}" data-flash role="status">
+  <span>{{ flash.texto }}</span>
+  <button type="button" aria-label="Cerrar aviso">{{ icono('cerrar', 16) }}</button>
+</div>
+{% endif %}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" defer></script>
+{% block scripts_previos %}{% endblock %}
+<script src="/static/js/pawbook.js?v=3"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,24 @@
+{% extends "_acceso.html" %}
+{% block titulo %}Nueva contraseña{% endblock %}
+{% block formulario %}
+<div class="card">
+  {% if valido %}
+  <h2 style="margin-bottom:4px">Crea tu nueva contraseña</h2>
+  <p class="suave">Al guardarla cerraremos tu sesión en todos los dispositivos.</p>
+  {% if error %}<div class="alerta alerta-error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="/restablecer">
+    <input type="hidden" name="token" value="{{ token }}">
+    <div class="campo"><label for="password">Contraseña nueva</label><input id="password" type="password" name="password" required minlength="8" maxlength="128" autocomplete="new-password" autofocus></div>
+    <div class="campo"><label for="password2">Repítela</label><input id="password2" type="password" name="password2" required minlength="8" maxlength="128" autocomplete="new-password"></div>
+    <p class="tenue">Mínimo 8 caracteres, con mayúscula, minúscula y número.</p>
+    <button class="btn btn-primario btn-bloque" type="submit">Guardar contraseña</button>
+  </form>
+  {% else %}
+  <h2 style="margin-bottom:4px">Este enlace ya no sirve</h2>
+  <div class="alerta alerta-error" role="alert">El enlace es inválido, ya se usó o venció (dura una hora).</div>
+  <a class="btn btn-primario btn-bloque" href="/recuperar">Pedir un enlace nuevo</a>
+  <div class="divisor">o</div>
+  <a class="btn btn-secundario btn-bloque" href="/login">Iniciar sesión</a>
+  {% endif %}
+</div>
+{% endblock %}

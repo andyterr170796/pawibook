@@ -1,0 +1,26 @@
+{% extends "_acceso.html" %}
+{% block titulo %}Recuperar contraseña{% endblock %}
+{% block formulario %}
+<div class="card">
+  <h2 style="margin-bottom:4px">¿Olvidaste tu contraseña?</h2>
+  {% if enviado %}
+  <div class="alerta alerta-ok" role="status">
+    Si {{ email or 'ese correo' }} tiene una cuenta en Pawbook, te enviamos un enlace para crear una contraseña nueva.
+  </div>
+  <p class="suave">El enlace vence en una hora y solo sirve una vez. Si no lo ves en unos minutos, revisa la carpeta de spam o promociones.</p>
+  <a class="btn btn-primario btn-bloque" href="/login">Volver a iniciar sesión</a>
+  {% else %}
+  <p class="suave">Escribe el correo de tu cuenta y te enviaremos un enlace para crear una contraseña nueva.</p>
+  {% if error %}<div class="alerta alerta-error" role="alert">{{ error }}</div>{% endif %}
+  {% if not correo_activo %}
+  <div class="alerta alerta-ambar" role="note">El envío de correos todavía no está configurado en este servidor. Si necesitas recuperar tu cuenta, escríbele al administrador de Pawbook.</div>
+  {% endif %}
+  <form method="post" action="/recuperar">
+    <div class="campo"><label for="email">Correo</label><input id="email" type="email" name="email" required maxlength="200" autocomplete="email" value="{{ email or '' }}" autofocus></div>
+    <button class="btn btn-primario btn-bloque" type="submit">Enviar enlace</button>
+  </form>
+  <div class="divisor">¿La recordaste?</div>
+  <a class="btn btn-secundario btn-bloque" href="/login">Iniciar sesión</a>
+  {% endif %}
+</div>
+{% endblock %}

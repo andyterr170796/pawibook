@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block titulo %}Calendario{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block contenido %}
+<div class="encabezado-pagina">
+  <div><h1>Calendario</h1><p>Citas veterinarias, vacunas, cumpleaños y más, con alertas.</p></div>
+  {% if mascotas %}<button class="btn btn-primario" type="button" data-nuevo-evento>{{ icono('mas', 18) }} Nuevo evento</button>{% endif %}
+</div>
+
+{% if not mascotas %}
+<div class="card vacio">
+  <div class="emoji">📅</div>
+  <p>El calendario es para tus mascotas. Crea un perfil de mascota para agendar citas, vacunas y cumpleaños.</p>
+  <a class="btn btn-primario" href="/perfil/nuevo?tipo=mascota">Crear perfil de mascota</a>
+</div>
+{% else %}
+<div class="cal-layout">
+  <section class="card cal">
+    <div class="cal-cabecera">
+      <div class="fila">
+        <a class="btn-icono" href="/calendario?mes={{ anterior.strftime('%Y-%m') }}{% if filtro_mascota %}&mascota={{ filtro_mascota }}{% endif %}" aria-label="Mes anterior">{{ icono('izq', 20) }}</a>
+        <h2>{{ MESES[primero.month - 1] }} {{ primero.year }}</h2>
+        <a class="btn-icono" href="/calendario?mes={{ siguiente.strftime('%Y-%m') }}{% if filtro_mascota %}&mascota={{ filtro_mascota }}{% endif %}" aria-label="Mes siguiente">{{ icono('der', 20) }}</a>
+        {% if primero.month != hoy.month or primero.year != hoy.year %}<a class="btn btn-fantasma btn-chico" href="/calendario{% if filtro_mascota %}?mascota={{ filtro_mascota }}{% endif %}">Hoy</a>{% endif %}
+      </div>
+      {% if mascotas|length > 1 %}
+      <form method="get" action="/calendario">
+        <input type="hidden" name="mes" value="{{ primero.strftime('%Y-%m') }}">
+        <select class="input" name="mascota" style="width:auto;min-height:38px;padding:6px 12px" onchange="this.form.submit()" aria-label="Filtrar por mascota">
+          <option value="">Todas mis mascotas</option>
+          {% for x in mascotas %}<option value="{{ x.id }}" {% if filtro_mascota == x.id %}selected{% endif %}>{{ x.nombre }}</option>{% endfor %}
+        </select>
+      </form>
+      {% endif %}
+    </div>
+    <div class="cal-grilla" role="grid" aria-label="Calendario de {{ MESES[primero.month - 1] }}">
+      {% for d in ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] %}<div class="cal-dia-nombre" role="columnheader">{{ d }}</div>{% endfor %}
+      {% for semana in semanas %}{% for dia in semana %}
+      <div class="cal-dia {% if not dia.del_mes %}fuera{% endif %} {% if dia.hoy %}hoy{% endif %}" role="gridcell" data-fecha="{{ dia.fecha.isoformat() }}" tabindex="0" aria-label="{{ fecha_larga(dia.fecha) }}{% if dia['items'] %}, {{ dia['items']|length }} evento(s){% endif %}">
+        <span class="num">{{ dia.fecha.day }}</span>
+        {% for it in dia['items'] %}
+          {% set info = cat.TIPOS_EVENTO.get(it.tipo, ('Evento', '📌', '#5B6475')) %}
+          {% if it.evento %}
+          {% set e = it.evento %}
+          <button type="button" class="cal-ev" style="border-color:{{ info[2] }};background:{{ info[2] }}14"
+            data-evento='{{ {"id": e.id, "mascota_id": e.perfil_id, "tipo": e.tipo, "titulo": e.titulo, "fecha": e.fecha.isoformat(), "hora": e.hora or "", "lugar": e.lugar or "", "notas": e.notas or "", "alerta": "" if e.alerta_dias is none else e.alerta_dias|string}|tojson }}'
+            title="{{ info[0] }}: {{ e.titulo }} ({{ it.mascota.nombre }}){% if e.hora %} {{ e.hora }}{% endif %}">
+            {{ info[1] }} {{ e.titulo }}
+          </button>
+          {% else %}
+          <a class="cal-ev" href="/p/{{ it.mascota.handle }}" style="border-color:{{ info[2] }};background:{{ info[2] }}1f" title="{{ it.titulo }}">🎂 {{ it.mascota.nombre }}</a>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% endfor %}{% endfor %}
+    </div>
+  </section>
+
+  <aside class="pila">
+    <section class="card card-pad">
+      <div class="card-titulo"><h3>{{ icono('reloj', 18) }} Próximos 60 días</h3></div>
+      {% if proximos %}{% for it in proximos %}{{ m.evento_item(it) }}{% endfor %}
+      {% else %}<p class="tenue" style="margin:0">Nada agendado. Haz clic en un día para agregar un evento.</p>{% endif %}
+    </section>
+    <section class="card card-pad">
+      <h3>Tipos de evento</h3>
+      <div class="leyenda">
+        {% for clave, (nombre, emoji, color) in cat.TIPOS_EVENTO.items() %}<span><i style="background:{{ color }}"></i>{{ emoji }} {{ nombre }}</span>{% endfor %}
+      </div>
+      <p class="tenue mt" style="margin-bottom:0">Las alertas llegan a tus notificaciones de Pawbook. También puedes descargar cada evento (.ics) para tu Google Calendar o calendario del celular.</p>
+    </section>
+  </aside>
+</div>
+
+<dialog class="modal" id="dialogo-evento">
+  <form method="post" action="/calendario/evento" id="form-evento">
+    <input type="hidden" name="evento_id" value="">
+    <div class="modal-cabecera">
+      <h2 id="titulo-dialogo">Nuevo evento</h2>
+      <button type="button" class="btn-icono" data-cerrar aria-label="Cerrar">{{ icono('cerrar', 20) }}</button>
+    </div>
+    <div class="modal-cuerpo">
+      <div class="rejilla-2">
+        <div class="campo">
+          <label for="ev-mascota">Mascota</label>
+          <select id="ev-mascota" name="mascota_id" required>
+            {% for x in mascotas %}<option value="{{ x.id }}" {% if perfil.id == x.id %}selected{% endif %}>{{ x.nombre }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="campo">
+          <label for="ev-tipo">Tipo</label>
+          <select id="ev-tipo" name="tipo">
+            {% for clave, (nombre, emoji, color) in cat.TIPOS_EVENTO.items() %}<option value="{{ clave }}">{{ emoji }} {{ nombre }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="campo"><label for="ev-titulo">Título</label><input id="ev-titulo" type="text" name="titulo" required maxlength="200" placeholder="Ej. Vacuna antirrábica"></div>
+      <div class="rejilla-2">
+        <div class="campo"><label for="ev-fecha">Fecha</label><input id="ev-fecha" type="date" name="fecha" required></div>
+        <div class="campo"><label for="ev-hora">Hora <span class="tenue">(opcional)</span></label><input id="ev-hora" type="time" name="hora"></div>
+      </div>
+      <div class="campo"><label for="ev-lugar">Lugar <span class="tenue">(opcional)</span></label><input id="ev-lugar" type="text" name="lugar" maxlength="200" placeholder="Ej. Veterinaria Patitas Sanas"></div>
+      <div class="campo"><label for="ev-notas">Notas <span class="tenue">(opcional)</span></label><textarea id="ev-notas" name="notas" rows="2" maxlength="1000" style="min-height:70px"></textarea></div>
+      <div class="campo" style="margin:0">
+        <label for="ev-alerta">Alerta</label>
+        <select id="ev-alerta" name="alerta_dias">{% for v, t in cat.OPCIONES_ALERTA %}<option value="{{ v }}" {% if v == '1' %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+      </div>
+    </div>
+    <div class="modal-pie">
+      <a class="btn btn-fantasma oculto" id="ev-ics" href="#">{{ icono('descargar', 16) }} .ics</a>
+      <button type="button" class="btn btn-peligro oculto" id="ev-eliminar">{{ icono('basura', 16) }} Eliminar</button>
+      <span style="flex:1"></span>
+      <button type="button" class="btn btn-fantasma" data-cerrar>Cancelar</button>
+      <button class="btn btn-primario" type="submit">Guardar</button>
+    </div>
+  </form>
+</dialog>
+<form method="post" id="form-eliminar-evento" data-confirmar="¿Eliminar este evento?"></form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const dlg = document.getElementById("dialogo-evento");
+    if (!dlg) return;
+    const f = document.getElementById("form-evento");
+    const titulo = document.getElementById("titulo-dialogo");
+    const ics = document.getElementById("ev-ics");
+    const eliminar = document.getElementById("ev-eliminar");
+    const formEliminar = document.getElementById("form-eliminar-evento");
+    const sugeridos = {
+      veterinaria: "Cita veterinaria", vacuna: "Vacuna", desparasitacion: "Desparasitación",
+      grooming: "Baño", medicamento: "Dar medicamento", cumpleanos: "Celebración de cumpleaños", otro: "",
+    };
+
+    function abrir(datos) {
+      f.reset();
+      f.evento_id.value = datos.id || "";
+      if (datos.mascota_id) f.mascota_id.value = datos.mascota_id;
+      f.tipo.value = datos.tipo || "veterinaria";
+      f.titulo.value = datos.titulo || "";
+      f.fecha.value = datos.fecha || "{{ hoy.isoformat() }}";
+      f.hora.value = datos.hora || "";
+      f.lugar.value = datos.lugar || "";
+      f.notas.value = datos.notas || "";
+      f.alerta_dias.value = datos.id ? (datos.alerta ?? "") : "1";
+      titulo.textContent = datos.id ? "Editar evento" : "Nuevo evento";
+      ics.classList.toggle("oculto", !datos.id);
+      eliminar.classList.toggle("oculto", !datos.id);
+      if (datos.id) {
+        ics.href = `/calendario/evento/${datos.id}.ics`;
+        formEliminar.action = `/calendario/evento/${datos.id}/eliminar`;
+      }
+      dlg.showModal();
+      setTimeout(() => f.titulo.focus(), 50);
+    }
+
+    document.querySelectorAll("[data-nuevo-evento]").forEach((b) => b.addEventListener("click", () => abrir({})));
+    document.querySelectorAll(".cal-dia").forEach((d) => {
+      d.addEventListener("click", (e) => {
+        const ev = e.target.closest(".cal-ev");
+        if (ev && ev.tagName === "A") return;
+        if (ev && ev.dataset.evento) { abrir(JSON.parse(ev.dataset.evento)); return; }
+        abrir({ fecha: d.dataset.fecha });
+      });
+      d.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target === d) abrir({ fecha: d.dataset.fecha }); });
+    });
+    f.tipo.addEventListener("change", () => {
+      if (!f.titulo.value || Object.values(sugeridos).includes(f.titulo.value)) f.titulo.value = sugeridos[f.tipo.value] || "";
+    });
+    dlg.querySelectorAll("[data-cerrar]").forEach((b) => b.addEventListener("click", () => dlg.close()));
+    eliminar.addEventListener("click", () => { if (confirm("¿Eliminar este evento?")) formEliminar.submit(); });
+  })();
+</script>
+{% endblock %}

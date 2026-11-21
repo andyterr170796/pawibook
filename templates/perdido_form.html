@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% set es_perdido = (datos.tipo or 'perdido') == 'perdido' %}
+{% block titulo %}{% if nuevo %}Publicar aviso{% else %}Editar aviso{% endif %}{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block head %}<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">{% endblock %}
+
+{% block contenido %}
+<div class="encabezado-pagina">
+  <div>
+    <h1>{% if nuevo %}Publicar un aviso{% else %}Editar aviso{% endif %}</h1>
+    <p>Avisaremos a los vecinos de la zona{% if es_perdido %} y a los amigos de tu mascota{% endif %}. El aviso se puede compartir sin necesidad de tener cuenta.</p>
+  </div>
+  <a class="btn btn-fantasma" href="{% if nuevo %}/perdidos{% else %}/perdidos/{{ datos.id }}{% endif %}">{{ icono('izq', 18) }} Volver</a>
+</div>
+
+{% if error %}<div class="alerta alerta-error" role="alert">{{ icono('cerrar', 18) }} {{ error }}</div>{% endif %}
+
+<form class="card" method="post" enctype="multipart/form-data" action="{% if nuevo %}/perdidos/nuevo{% else %}/perdidos/{{ datos.id }}/editar{% endif %}" id="form-aviso">
+  <section class="seccion-form">
+    <div class="tipo-switch" role="radiogroup" aria-label="Tipo de aviso" style="margin-bottom:0">
+      <label><input type="radio" name="tipo" value="perdido" {% if es_perdido %}checked{% endif %}><span>🚨 Perdí a mi mascota</span></label>
+      <label><input type="radio" name="tipo" value="encontrado" {% if not es_perdido %}checked{% endif %}><span>🔎 Encontré una mascota</span></label>
+    </div>
+  </section>
+
+  <section class="seccion-form">
+    <h2>🐾 La mascota</h2>
+    {% if mascotas %}
+    <div class="campo" data-solo="perdido">
+      <label for="mascota_id">¿Cuál de tus mascotas?</label>
+      <select id="mascota_id" name="mascota_id">
+        <option value="">Otra (no tiene perfil en Pawbook)</option>
+        {% for mm in mascotas %}
+        <option value="{{ mm.id }}" data-nombre="{{ mm.nombre }}" data-especie="{{ mm.especie or '' }}" data-raza="{{ mm.raza or '' }}" data-sexo="{{ mm.sexo or '' }}" data-distrito="{{ mm.distrito or '' }}" {% if datos.mascota_id|string == mm.id|string %}selected{% endif %}>{{ emoji_perfil(mm) }} {{ mm.nombre }}</option>
+        {% endfor %}
+      </select>
+      <span class="ayuda">Si eliges una de tus mascotas, usamos su foto de perfil si no subes otra y avisamos a sus amigos.</span>
+    </div>
+    {% endif %}
+    <div class="rejilla-2">
+      <div class="campo">
+        <label for="nombre"><span data-solo="perdido">Nombre</span><span data-solo="encontrado">Nombre en la placa <span class="tenue">(si tiene)</span></span></label>
+        <input id="nombre" type="text" name="nombre" maxlength="120" value="{{ datos.nombre or '' }}" placeholder="Ej. Toby">
+      </div>
+      <div class="campo">
+        <label for="especie">Especie</label>
+        <select id="especie" name="especie">
+          {% for clave, (nombre_e, emoji) in cat.ESPECIES.items() %}<option value="{{ clave }}" {% if (datos.especie or 'perro') == clave %}selected{% endif %}>{{ emoji }} {{ nombre_e }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="rejilla-2">
+      <div class="campo">
+        <label for="raza">Raza</label>
+        <input id="raza" type="text" name="raza" list="lista-razas" maxlength="120" value="{{ datos.raza or '' }}" placeholder="Escribe o elige; “Mestizo” si no sabes">
+        <datalist id="lista-razas"></datalist>
+      </div>
+      <div class="campo">
+        <span class="etiqueta">Sexo</span>
+        <div class="opciones-radio" style="grid-template-columns:repeat(3,1fr)">
+          {% for clave, (nombre_s, simbolo) in cat.SEXOS.items() %}
+          <label class="opcion-radio"><input type="radio" name="sexo" value="{{ clave }}" {% if datos.sexo == clave %}checked{% endif %}><span>{{ simbolo }} {{ nombre_s }}</span></label>
+          {% endfor %}
+          <label class="opcion-radio"><input type="radio" name="sexo" value="" {% if not datos.sexo %}checked{% endif %}><span>No sé</span></label>
+        </div>
+      </div>
+    </div>
+    <div class="campo">
+      <label for="color">Color y señas particulares</label>
+      <input id="color" type="text" name="color" maxlength="150" value="{{ datos.color or '' }}" placeholder="Ej. marrón con mancha blanca en el pecho, collar rojo, cojea un poco">
+    </div>
+    <div class="subir-foto">
+      {% if datos.foto %}<img class="avatar" src="{{ datos.foto }}" alt="Foto actual" style="width:96px;height:96px;border-radius:14px">{% endif %}
+      <div class="campo" style="margin:0;flex:1">
+        <label for="foto">Foto <span class="tenue">(lo que más ayuda a reconocerla)</span></label>
+        <input id="foto" type="file" name="foto" accept="image/*">
+        <span class="ayuda">Una foto reciente y nítida, de cuerpo entero si es posible. JPG, PNG o WebP de hasta 10 MB.</span>
+        {% if datos.foto %}<label class="check" style="font-weight:600"><input type="checkbox" name="quitar_foto" value="1"> Quitar foto actual</label>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  <section class="seccion-form">
+    <h2>{{ icono('pin', 20) }} <span data-solo="perdido">¿Dónde y cuándo la viste por última vez?</span><span data-solo="encontrado">¿Dónde y cuándo la encontraste?</span></h2>
+    <div class="rejilla-3">
+      <div class="campo"><label for="fecha">Fecha</label><input id="fecha" type="date" name="fecha" value="{{ datos.fecha or hoy.isoformat() }}" max="{{ hoy.isoformat() }}" required></div>
+      <div class="campo"><label for="hora">Hora aproximada</label><input id="hora" type="time" name="hora" value="{{ datos.hora or '' }}"></div>
+      <div class="campo">
+        <label for="distrito">Distrito</label>
+        <input id="distrito" type="text" name="distrito" list="lista-distritos" maxlength="120" value="{{ datos.distrito or '' }}">
+        <datalist id="lista-distritos">{% for d in cat.DISTRITOS_LIMA %}<option value="{{ d }}">{% endfor %}</datalist>
+      </div>
+    </div>
+    <div class="campo"><label for="referencia">Referencia</label><input id="referencia" type="text" name="referencia" maxlength="250" value="{{ datos.referencia or '' }}" placeholder="Ej. cerca al Parque Kennedy, cruce con Av. Larco"></div>
+    <div class="campo">
+      <div class="fila-entre envolver">
+        <span class="etiqueta">Punto en el mapa</span>
+        <span class="fila">
+          <button type="button" class="btn btn-suave btn-chico" data-ubicar="mapa-aviso">{{ icono('ubicar', 16) }} Usar mi ubicación</button>
+          <button type="button" class="btn btn-fantasma btn-chico" data-limpiar="mapa-aviso">Quitar</button>
+        </span>
+      </div>
+      <div id="mapa-aviso" class="mapa-selector"></div>
+      <input type="hidden" id="lat" name="lat" value="{{ datos.lat if datos.lat not in (none, '') else '' }}">
+      <input type="hidden" id="lng" name="lng" value="{{ datos.lng if datos.lng not in (none, '') else '' }}">
+      <span class="ayuda">Con el punto avisamos a los vecinos cercanos y aparece en el mapa. Guardamos la ubicación redondeada (~100 m).</span>
+    </div>
+  </section>
+
+  <section class="seccion-form">
+    <h2>{{ icono('telefono', 20) }} Contacto y detalles</h2>
+    <div class="rejilla-2">
+      <div class="campo">
+        <label for="telefono">Teléfono / WhatsApp</label>
+        <input id="telefono" type="tel" name="telefono" maxlength="60" value="{{ datos.telefono or '' }}" placeholder="+51 999 999 999" required>
+        <span class="ayuda">Será visible para cualquiera que vea el aviso.</span>
+      </div>
+      <div class="campo" data-solo="perdido">
+        <label for="recompensa">Recompensa <span class="tenue">(opcional)</span></label>
+        <input id="recompensa" type="text" name="recompensa" maxlength="120" value="{{ datos.recompensa or '' }}" placeholder="Ej. S/ 200">
+      </div>
+    </div>
+    <div class="campo" style="margin:0">
+      <label for="descripcion">Más detalles</label>
+      <textarea id="descripcion" name="descripcion" rows="4" maxlength="1500" placeholder="¿Cómo se perdió o dónde la tienes? ¿Es asustadiza? ¿Necesita medicación?">{{ datos.descripcion or '' }}</textarea>
+    </div>
+  </section>
+
+  <div class="modal-pie">
+    <a class="btn btn-fantasma" href="{% if nuevo %}/perdidos{% else %}/perdidos/{{ datos.id }}{% endif %}">Cancelar</a>
+    <button class="btn btn-primario" type="submit">{% if nuevo %}Publicar aviso{% else %}Guardar cambios{% endif %}</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts_previos %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>window.PAW_RAZAS = {{ cat.RAZAS|tojson }};</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const form = document.getElementById("form-aviso");
+    const tipo = () => form.querySelector("input[name=tipo]:checked").value;
+    const aplicar = () => {
+      const t = tipo();
+      form.querySelectorAll("[data-solo]").forEach((el) => {
+        const visible = el.dataset.solo === t;
+        el.classList.toggle("oculto", !visible);
+        el.querySelectorAll("input,select").forEach((i) => { i.disabled = !visible; });
+      });
+      document.getElementById("nombre").required = t === "perdido";
+    };
+    form.querySelectorAll("input[name=tipo]").forEach((r) => r.addEventListener("change", aplicar));
+    aplicar();
+
+    // Elegir una de mis mascotas rellena sus datos
+    const sel = document.getElementById("mascota_id");
+    if (sel) sel.addEventListener("change", () => {
+      const o = sel.selectedOptions[0];
+      if (!o || !o.value) return;
+      form.nombre.value = o.dataset.nombre || "";
+      if (o.dataset.especie) form.especie.value = o.dataset.especie;
+      form.raza.value = o.dataset.raza || "";
+      const sexo = form.querySelector(`input[name=sexo][value="${o.dataset.sexo || ""}"]`);
+      if (sexo) sexo.checked = true;
+      if (o.dataset.distrito && !form.distrito.value) form.distrito.value = o.dataset.distrito;
+      form.especie.dispatchEvent(new Event("change"));  // pawbook.js actualiza las razas sugeridas
+    });
+
+    window.pawMapaSelector("mapa-aviso", "lat", "lng", {{ cat.CENTRO_MAPA|list|tojson }});
+  })();
+</script>
+{% endblock %}

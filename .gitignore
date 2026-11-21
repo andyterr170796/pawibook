@@ -1,0 +1,29 @@
+# Secretos y credenciales (nunca a GitHub)
+.env
+*.env
+!.env.example
+.secret_key
+credenciales_admin.txt
+
+# Base de datos, respaldos y archivos subidos por los usuarios
+pawbook.db
+pawbook.db-*
+*.db
+*.sqlite3
+uploads/
+
+# Registros
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Notas locales
+tema.txt
+
+# Editores
+.vscode/
+.idea/

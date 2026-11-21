@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block titulo %}{{ pf.nombre }}{% endblock %}
+{% block og_titulo %}{{ pf.nombre }} en Pawbook{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block head %}
+{% if pf.es_entidad and pf.lat is not none %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+{% endif %}
+{% endblock %}
+
+{% block contenido %}
+<section class="card" style="overflow:visible">
+  <div class="portada {% if not pf.portada %}portada-defecto{% endif %}" {% if pf.portada %}style="background-image:url('{{ pf.portada }}')"{% endif %} role="img" aria-label="Portada de {{ pf.nombre }}"></div>
+  <div class="perfil-cabecera">
+    {{ avatar(pf, 128, 'avatar-grande') }}
+    <div class="perfil-botones">
+      {% if es_mio %}
+        <a class="btn btn-secundario btn-chico" href="/perfil/{{ pf.id }}/editar">{{ icono('editar', 16) }} Editar perfil</a>
+        {% if pf.es_mascota and not aviso_perdido %}
+        <a class="btn btn-fantasma btn-chico" href="/perdidos/nuevo?tipo=perdido&mascota={{ pf.id }}" title="Publicar un aviso de mascota perdida">{{ icono('alerta', 16) }} Reportar pérdida</a>
+        {% endif %}
+        {% if perfil and perfil.id != pf.id %}
+        <form method="post" action="/perfil/activar/{{ pf.id }}"><button class="btn btn-suave btn-chico">{{ icono('cambiar', 16) }} Usar este perfil</button></form>
+        {% endif %}
+      {% elif perfil %}
+        {{ m.boton_seguir(pf, lo_sigo, True) }}
+        {% if compatible %}
+        <button type="button" class="btn btn-chico btn-interes {% if interes_enviado %}enviado{% else %}btn-suave{% endif %}" data-interes="{{ pf.id }}" {% if interes_enviado %}disabled{% endif %}>💞 <span class="txt">{% if interes_enviado %}Interés enviado{% else %}Me interesa{% endif %}</span></button>
+        {% endif %}
+      {% elif not usuario %}
+        <a class="btn btn-primario btn-chico" href="/registro">Únete para seguir a {{ pf.nombre }}</a>
+      {% endif %}
+    </div>
+
+    <div class="perfil-nombre">
+      <h1>{{ pf.nombre }}</h1>
+      {{ m.verificado(pf, 22) }}
+      {% if pf.es_mascota and pf.busca_pareja %}<span class="chip chip-rosa">💞 Busca pareja</span>{% endif %}
+    </div>
+    <div class="perfil-handle">@{{ pf.handle }}</div>
+
+    <div class="perfil-datos">
+      {% if pf.es_mascota %}
+        <span>{{ cat.ESPECIES.get(pf.especie or 'otro')[1] }} {{ cat.ESPECIES.get(pf.especie or 'otro')[0] }}{% if pf.raza %} · {{ pf.raza }}{% endif %}</span>
+        {% if pf.sexo %}<span>{{ cat.SEXOS[pf.sexo][1] }} {{ cat.SEXOS[pf.sexo][0] }}</span>{% endif %}
+        {% set e = edad_texto(pf) %}{% if e %}<span>{{ icono('reloj', 16) }} {{ e }}</span>{% endif %}
+        {% if pf.fecha_nacimiento %}<span>{{ icono('regalo', 16) }} {{ pf.fecha_nacimiento.day }} de {{ MESES[pf.fecha_nacimiento.month - 1] }}</span>{% endif %}
+      {% else %}
+        <span>{{ cat.CATEGORIAS_ENTIDAD.get(pf.categoria or 'otro')[1] }} {{ cat.CATEGORIAS_ENTIDAD.get(pf.categoria or 'otro')[0] }}</span>
+      {% endif %}
+      {% if pf.distrito or pf.ciudad or pf.pais %}<span>{{ icono('pin', 16) }} {{ [pf.distrito, pf.ciudad, pf.pais]|select|join(', ') }}</span>{% endif %}
+      {% if distancia is not none %}<span>a {{ '%.1f'|format(distancia) }} km de {{ perfil.nombre }}</span>{% endif %}
+    </div>
+
+    {% if pf.es_mascota and pf.lista_tags %}
+    <div class="chips">{% for t in pf.lista_tags %}<a class="chip chip-ambar" href="/buscar?q=%23{{ t|urlencode }}&tipo=mascota">#{{ t }}</a>{% endfor %}</div>
+    {% endif %}
+
+    <div class="perfil-stats">
+      <div><b data-seguidores="{{ pf.id }}">{{ seguidores }}</b><span>seguidores</span></div>
+      <div><b>{{ siguiendo_n }}</b><span>siguiendo</span></div>
+      <div><b>{{ posts|length }}{% if mas_antiguo %}+{% endif %}</b><span>publicaciones</span></div>
+    </div>
+  </div>
+</section>
+
+{% if aviso_perdido %}
+<a class="banner-aviso perdido mt" href="/perdidos/{{ aviso_perdido.id }}">
+  <span class="emoji">🚨</span>
+  <span><b>{{ pf.nombre }} está perdid{{ 'a' if pf.sexo == 'hembra' else 'o' }}</b> desde el {{ fecha_corta(aviso_perdido.fecha) }}{% if aviso_perdido.distrito %} en {{ aviso_perdido.distrito }}{% endif %}. {% if es_mio %}Ver tu aviso{% else %}¿{{ 'La' if pf.sexo == 'hembra' else 'Lo' }} has visto? Ver el aviso{% endif %} →</span>
+</a>
+{% endif %}
+
+<div class="perfil-cuerpo">
+  <div class="pila">
+    {% if pf.es_mascota and cumple and faltan is not none and faltan <= 30 %}
+    <div class="banner-cumple">
+      <span class="emoji">🎂</span>
+      <span>{% if faltan == 0 %}¡Hoy es el cumpleaños de {{ pf.nombre }}!{% else %}{{ pf.nombre }} cumple {{ cumple.year - pf.fecha_nacimiento.year }} {{ dias_texto(faltan) }}{% endif %}</span>
+    </div>
+    {% endif %}
+
+    <section class="card card-pad">
+      <h3>{% if pf.es_mascota %}Sobre {{ pf.nombre }}{% else %}Información{% endif %}</h3>
+      {% if pf.descripcion %}<div style="overflow-wrap:anywhere">{{ pf.descripcion|enlazar }}</div>
+      {% else %}<p class="tenue">{% if es_mio %}Aún no escribiste una descripción. <a href="/perfil/{{ pf.id }}/editar">Agregar</a>{% else %}Sin descripción todavía.{% endif %}</p>{% endif %}
+
+      {% if pf.es_entidad and pf.categoria == 'restaurante' and pf.lista_tags %}
+      <div class="chips mt">{% for a in pf.lista_tags if a in cat.AMENIDADES_PET_FRIENDLY %}{% set info = cat.AMENIDADES_PET_FRIENDLY[a] %}<span class="chip chip-rosa">{{ info[1] }} {{ info[0] }}</span>{% endfor %}</div>
+      {% endif %}
+      {% if pf.es_entidad %}
+      <ul class="dato-lista mt">
+        {% if pf.direccion %}<li>{{ icono('pin', 18) }}<div><small>Dirección</small>{{ pf.direccion }}</div></li>{% endif %}
+        {% if pf.horario %}<li>{{ icono('reloj', 18) }}<div><small>Horario de atención</small>{{ pf.horario }}</div></li>{% endif %}
+        {% if pf.telefono %}<li>{{ icono('telefono', 18) }}<div><small>Teléfono</small><a href="tel:{{ pf.telefono|replace(' ', '') }}">{{ pf.telefono }}</a>
+          {% set solo_num = pf.telefono|replace(' ', '')|replace('+', '')|replace('-', '') %}
+          · <a href="https://wa.me/{{ solo_num }}" target="_blank" rel="noopener">WhatsApp</a></div></li>{% endif %}
+        {% if pf.email_contacto %}<li>{{ icono('correo', 18) }}<div><small>Correo</small><a href="mailto:{{ pf.email_contacto }}">{{ pf.email_contacto }}</a></div></li>{% endif %}
+        {% if pf.web %}<li>{{ icono('web', 18) }}<div><small>Web</small><a href="{{ pf.web }}" target="_blank" rel="noopener nofollow">{{ pf.web|replace('https://', '')|replace('http://', '') }}</a></div></li>{% endif %}
+      </ul>
+      {% if pf.lat is not none %}<div id="mapa-entidad" class="mapa-mini" data-lat="{{ pf.lat }}" data-lng="{{ pf.lng }}"></div>{% endif %}
+      {% endif %}
+    </section>
+
+    {% if anuncios %}
+    <section class="pila">
+      {% for a in anuncios %}{{ m.anuncio_lateral(a) }}{% endfor %}
+    </section>
+    {% endif %}
+  </div>
+
+  <div>
+    {% if es_mio and perfil and perfil.id == pf.id %}
+    <form class="card compositor" method="post" action="/publicar" enctype="multipart/form-data">
+      <div class="fila" style="align-items:flex-start;gap:12px">
+        {{ avatar(pf, 44) }}
+        <div style="flex:1;min-width:0">
+          <label class="sr" for="texto-post">Nueva publicación</label>
+          <textarea id="texto-post" name="texto" rows="2" maxlength="3000" placeholder="Comparte algo de {{ pf.nombre }}…"></textarea>
+          <div class="vista-previa oculto"><img alt="Vista previa"><button type="button" class="btn btn-secundario btn-chico">{{ icono('cerrar', 16) }} Quitar</button></div>
+        </div>
+      </div>
+      <div class="compositor-pie">
+        <label class="btn btn-fantasma btn-chico" style="cursor:pointer">{{ icono('imagen', 18) }} Foto<input type="file" name="imagen" accept="image/*" class="sr"></label>
+        <button class="btn btn-primario btn-chico" type="submit">Publicar</button>
+      </div>
+    </form>
+    {% endif %}
+
+    {% for post in posts %}{{ m.publicacion(post) }}{% endfor %}
+    {% if not posts %}
+    <div class="card vacio"><div class="emoji">📷</div><p>{{ pf.nombre }} aún no tiene publicaciones.</p></div>
+    {% endif %}
+    {% if mas_antiguo %}
+    <div class="cargar-mas"><a class="btn btn-secundario" href="/p/{{ pf.handle }}?antes={{ mas_antiguo }}">Ver publicaciones anteriores</a></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if pf.es_entidad and pf.lat is not none %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+  (function () {
+    const el = document.getElementById("mapa-entidad");
+    if (!el || !window.L) return;
+    const ll = [parseFloat(el.dataset.lat), parseFloat(el.dataset.lng)];
+    const mapa = L.map(el, { scrollWheelZoom: false, zoomControl: false, attributionControl: true }).setView(ll, 15);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(mapa);
+    L.marker(ll).addTo(mapa);
+  })();
+</script>
+{% endif %}
+{% endblock %}

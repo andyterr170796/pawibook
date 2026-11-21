@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% set es_mascota = datos.tipo == 'mascota' %}
+{% block titulo %}{% if nuevo %}Nuevo perfil{% else %}Editar perfil{% endif %}{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block head %}<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">{% endblock %}
+
+{% block contenido %}
+<div class="encabezado-pagina">
+  <div>
+    <h1>{% if nuevo %}{% if es_mascota %}Crea el perfil de tu mascota{% else %}Crea el perfil de tu entidad{% endif %}{% else %}Editar {{ datos.nombre }}{% endif %}</h1>
+    <p>{% if es_mascota %}Cuéntale a Pawbook quién es tu compañero.{% else %}Veterinarias, tiendas, refugios, paseadores, marcas y más.{% endif %}</p>
+  </div>
+  {% if nuevo %}<a class="btn btn-fantasma" href="/perfil/nuevo">{{ icono('izq', 18) }} Cambiar tipo</a>{% endif %}
+</div>
+
+{% if error %}<div class="alerta alerta-error" role="alert">{{ icono('cerrar', 18) }} {{ error }}</div>{% endif %}
+
+<form class="card" method="post" enctype="multipart/form-data" action="{% if nuevo %}/perfil/nuevo{% else %}/perfil/{{ datos.id }}/editar{% endif %}">
+  <input type="hidden" name="tipo" value="{{ datos.tipo }}">
+
+  <section class="seccion-form">
+    <h2>{{ icono('imagen', 20) }} Fotos</h2>
+    <div class="subir-foto mb">
+      {% if datos.foto %}<img id="prev-foto" class="avatar" src="{{ datos.foto }}" alt="Foto actual" style="width:96px;height:96px">
+      {% else %}<span id="prev-foto" class="avatar avatar-emoji" style="width:96px;height:96px;font-size:48px;background:linear-gradient(135deg,#E7F0FF,#BFD5FF)">{% if es_mascota %}{{ cat.ESPECIES.get(datos.especie or 'perro', ('', '🐾'))[1] }}{% else %}⭐{% endif %}</span>{% endif %}
+      <div class="campo" style="margin:0;flex:1">
+        <label for="foto">Foto de perfil</label>
+        <input id="foto" type="file" name="foto" accept="image/*" data-preview="prev-foto">
+        <span class="ayuda">Se recorta en cuadrado. JPG, PNG o WebP de hasta 10 MB.</span>
+        {% if datos.foto %}<label class="check" style="font-weight:600"><input type="checkbox" name="quitar_foto" value="1"> Quitar foto actual</label>{% endif %}
+      </div>
+    </div>
+    <div class="campo" style="margin:0">
+      <label for="portada">Foto de portada <span class="tenue">(opcional)</span></label>
+      <input id="portada" type="file" name="portada" accept="image/*">
+      {% if datos.portada %}<label class="check" style="font-weight:600"><input type="checkbox" name="quitar_portada" value="1"> Quitar portada actual</label>{% endif %}
+    </div>
+  </section>
+
+  <section class="seccion-form">
+    <h2>{% if es_mascota %}🐾 Datos de la mascota{% else %}⭐ Datos de la entidad{% endif %}</h2>
+    <div class="campo">
+      <label for="nombre">Nombre</label>
+      <input id="nombre" type="text" name="nombre" required maxlength="120" value="{{ datos.nombre or '' }}" placeholder="{% if es_mascota %}Ej. Rocky{% else %}Ej. Veterinaria Huellitas{% endif %}">
+    </div>
+
+    {% if es_mascota %}
+    <div class="campo">
+      <span class="etiqueta">Especie</span>
+      <div class="opciones-radio">
+        {% for clave, (nombre_e, emoji) in cat.ESPECIES.items() %}
+        <label class="opcion-radio"><input type="radio" name="especie" value="{{ clave }}" {% if (datos.especie or 'perro') == clave %}checked{% endif %}><span>{{ emoji }} {{ nombre_e }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="rejilla-2">
+      <div class="campo">
+        <label for="raza">Raza</label>
+        <input id="raza" type="text" name="raza" list="lista-razas" maxlength="120" value="{{ datos.raza or '' }}" placeholder="Escribe o elige una raza">
+        <datalist id="lista-razas"></datalist>
+      </div>
+      <div class="campo">
+        <span class="etiqueta">Sexo</span>
+        <div class="opciones-radio" style="grid-template-columns:1fr 1fr">
+          {% for clave, (nombre_s, simbolo) in cat.SEXOS.items() %}
+          <label class="opcion-radio"><input type="radio" name="sexo" value="{{ clave }}" {% if datos.sexo == clave %}checked{% endif %}><span>{{ simbolo }} {{ nombre_s }}</span></label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="rejilla-2">
+      <div class="campo">
+        <label for="fecha_nacimiento">Cumpleaños</label>
+        <input id="fecha_nacimiento" type="date" name="fecha_nacimiento" value="{{ datos.fecha_nacimiento or '' }}" max="{{ hoy.isoformat() }}">
+        <span class="ayuda">Con el cumpleaños calculamos la edad y avisamos a sus amigos.</span>
+      </div>
+      <div class="campo">
+        <label for="edad_aprox">Edad aproximada (años)</label>
+        <input id="edad_aprox" type="number" name="edad_aprox" min="0" max="60" value="{{ datos.edad_aprox if datos.edad_aprox is not none else '' }}" placeholder="Si no sabes su cumpleaños">
+        <span class="ayuda">Útil para mascotas adoptadas.</span>
+      </div>
+    </div>
+    {% else %}
+    <div class="campo">
+      <label for="categoria">¿Qué es?</label>
+      <select id="categoria" name="categoria">
+        {% for clave, (nombre_c, emoji) in cat.CATEGORIAS_ENTIDAD.items() %}
+        <option value="{{ clave }}" {% if datos.categoria == clave %}selected{% endif %}>{{ emoji }} {{ nombre_c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="campo {% if datos.categoria != 'restaurante' %}oculto{% endif %}" id="campo-amenidades">
+      <span class="etiqueta">¿Qué ofrece a las mascotas?</span>
+      {% set amen_sel = (datos.tags or '').split(',') %}
+      <div class="opciones-radio" style="grid-template-columns:repeat(auto-fill,minmax(210px,1fr))">
+        {% for clave, (nombre_a, emoji) in cat.AMENIDADES_PET_FRIENDLY.items() %}
+        <label class="opcion-radio"><input type="checkbox" name="amenidades" value="{{ clave }}" {% if clave in amen_sel %}checked{% endif %}><span>{{ emoji }} {{ nombre_a }}</span></label>
+        {% endfor %}
+      </div>
+      <span class="ayuda">Tu local aparecerá en <a href="/pet-friendly" target="_blank">Restaurantes pet friendly</a> y en esa capa del mapa.</span>
+    </div>
+    <div class="rejilla-2">
+      <div class="campo"><label for="telefono">Teléfono / WhatsApp</label><input id="telefono" type="tel" name="telefono" maxlength="60" value="{{ datos.telefono or '' }}" placeholder="+51 999 999 999"></div>
+      <div class="campo"><label for="email_contacto">Correo electrónico</label><input id="email_contacto" type="email" name="email_contacto" maxlength="200" value="{{ datos.email_contacto or '' }}"></div>
+    </div>
+    <div class="rejilla-2">
+      <div class="campo"><label for="horario">Horario de atención</label><input id="horario" type="text" name="horario" maxlength="250" value="{{ datos.horario or '' }}" placeholder="Lun–Sáb 9:00–19:00"></div>
+      <div class="campo"><label for="web">Página web o redes</label><input id="web" type="text" name="web" maxlength="250" value="{{ datos.web or '' }}" placeholder="www.tusitio.com"></div>
+    </div>
+    {% endif %}
+
+    <div class="campo">
+      <label for="descripcion">Descripción</label>
+      <textarea id="descripcion" name="descripcion" rows="5" data-max-palabras="500" data-contador="cont-desc" placeholder="{% if es_mascota %}¿Cómo es su personalidad? ¿Qué le gusta?{% else %}Servicios, especialidades, lo que te hace diferente…{% endif %}">{{ datos.descripcion or '' }}</textarea>
+      <div id="cont-desc" class="contador-palabras">0 / 500 palabras</div>
+    </div>
+
+    {% if es_mascota %}
+    <div class="campo tags-editor">
+      <span class="etiqueta">Tags</span>
+      <input type="hidden" name="tags" value="{{ datos.tags or '' }}">
+      <div class="chips">
+        {% for t in cat.TAGS_SUGERIDOS %}<button type="button" class="chip" data-tag="{{ t }}">#{{ t }}</button>{% endfor %}
+      </div>
+      <input type="text" class="input" maxlength="25" placeholder="Agrega tu propio tag y presiona Enter" aria-label="Agregar tag" style="margin-top:6px">
+      <span class="ayuda">Ayudan a que otras mascotas con gustos parecidos te encuentren.</span>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="seccion-form">
+    <h2>{{ icono('pin', 20) }} Ubicación</h2>
+    <div class="rejilla-3">
+      <div class="campo">
+        <label for="pais">País</label>
+        <select id="pais" name="pais">{% for p in cat.PAISES %}<option {% if (datos.pais or 'Perú') == p %}selected{% endif %}>{{ p }}</option>{% endfor %}</select>
+      </div>
+      <div class="campo"><label for="ciudad">Ciudad</label><input id="ciudad" type="text" name="ciudad" maxlength="120" value="{{ datos.ciudad or '' }}"></div>
+      <div class="campo">
+        <label for="distrito">Distrito</label>
+        <input id="distrito" type="text" name="distrito" list="lista-distritos" maxlength="120" value="{{ datos.distrito or '' }}">
+        <datalist id="lista-distritos">{% for d in cat.DISTRITOS_LIMA %}<option value="{{ d }}">{% endfor %}</datalist>
+      </div>
+    </div>
+    {% if not es_mascota %}
+    <div class="campo"><label for="direccion">Dirección</label><input id="direccion" type="text" name="direccion" maxlength="250" value="{{ datos.direccion or '' }}" placeholder="Av. Ejemplo 123, Miraflores"></div>
+    {% endif %}
+    <div class="campo">
+      <div class="fila-entre envolver">
+        <span class="etiqueta">{% if es_mascota %}Zona aproximada en el mapa{% else %}Ubicación exacta en el mapa{% endif %}</span>
+        <span class="fila">
+          <button type="button" class="btn btn-suave btn-chico" data-ubicar="mapa-sel">{{ icono('ubicar', 16) }} Usar mi ubicación</button>
+          <button type="button" class="btn btn-fantasma btn-chico" data-limpiar="mapa-sel">Quitar</button>
+        </span>
+      </div>
+      <div id="mapa-sel" class="mapa-selector"></div>
+      <input type="hidden" id="lat" name="lat" value="{{ datos.lat if datos.lat is not none else '' }}">
+      <input type="hidden" id="lng" name="lng" value="{{ datos.lng if datos.lng is not none else '' }}">
+      <span class="ayuda">{% if es_mascota %}Haz clic en el mapa cerca de tu zona. Por privacidad guardamos la ubicación redondeada (~100 m) y nunca mostramos tu dirección.{% else %}Haz clic en el mapa donde está tu local para aparecer en el mapa de Pawbook.{% endif %}</span>
+    </div>
+    <label class="check"><input type="checkbox" name="mostrar_en_mapa" value="1" {% if datos.mostrar_en_mapa in (true, '1') %}checked{% endif %}>
+      <span>{% if es_mascota %}Mostrar a {{ datos.nombre or 'mi mascota' }} en el mapa de “Amigos cerca”{% else %}Mostrar mi local en el mapa{% endif %}</span></label>
+  </section>
+
+  {% if es_mascota %}
+  <section class="seccion-form">
+    <h2>💞 Búsqueda de pareja</h2>
+    <label class="check"><input type="checkbox" name="busca_pareja" value="1" {% if datos.busca_pareja in (true, '1') %}checked{% endif %}>
+      <span>Activar alerta de búsqueda de pareja<br><span class="tenue" style="font-weight:600">Te avisaremos cuando haya mascotas compatibles (misma especie, sexo opuesto, mayores de 1 año). Promovemos la crianza responsable y con control veterinario.</span></span></label>
+  </section>
+  {% endif %}
+
+  <div class="modal-pie">
+    <a class="btn btn-fantasma" href="{% if nuevo %}/{% else %}/p/{{ (mis_perfiles|selectattr('id', 'equalto', datos.id)|first).handle }}{% endif %}">Cancelar</a>
+    <button class="btn btn-primario" type="submit">{% if nuevo %}Crear perfil{% else %}Guardar cambios{% endif %}</button>
+  </div>
+</form>
+
+{% if not nuevo %}
+<section class="card card-pad zona-peligro mt">
+  <h3 style="color:var(--rojo)">Eliminar perfil</h3>
+  <p class="suave">Se borrarán sus publicaciones, comentarios, eventos y seguidores. Esta acción no se puede deshacer.</p>
+  <form method="post" action="/perfil/{{ datos.id }}/eliminar" class="fila envolver" data-confirmar="¿Seguro que quieres eliminar este perfil para siempre?">
+    <input class="input" style="max-width:280px" type="text" name="confirmar" placeholder="Escribe “{{ datos.nombre }}” para confirmar" aria-label="Confirma escribiendo el nombre del perfil" required>
+    <button class="btn btn-peligro">{{ icono('basura', 16) }} Eliminar perfil</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts_previos %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>window.PAW_RAZAS = {{ cat.RAZAS|tojson }};</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    // Las especies son radios: sincronizar el datalist de razas
+    const radios = document.querySelectorAll("input[name=especie]");
+    const lista = document.getElementById("lista-razas");
+    function llenar() {
+      const sel = document.querySelector("input[name=especie]:checked");
+      if (!lista || !sel) return;
+      lista.innerHTML = "";
+      (window.PAW_RAZAS[sel.value] || []).forEach((r) => { const o = document.createElement("option"); o.value = r; lista.appendChild(o); });
+    }
+    radios.forEach((r) => r.addEventListener("change", llenar));
+    llenar();
+    // Restaurantes: mostrar lo que ofrecen a las mascotas
+    const categoria = document.getElementById("categoria");
+    const amenidades = document.getElementById("campo-amenidades");
+    if (categoria && amenidades) categoria.addEventListener("change", () => {
+      amenidades.classList.toggle("oculto", categoria.value !== "restaurante");
+    });
+    window.pawMapaSelector("mapa-sel", "lat", "lng", {{ [datos.lat, datos.lng]|tojson if datos.lat else cat.CENTRO_MAPA|list|tojson }});
+  })();
+</script>
+{% endblock %}

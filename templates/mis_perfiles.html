@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block titulo %}Mis perfiles{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block contenido %}
+<div class="encabezado-pagina">
+  <div><h1>Mis perfiles</h1><p>Elige con qué perfil quieres publicar, seguir y comentar.</p></div>
+  <a class="btn btn-primario" href="/perfil/nuevo">{{ icono('mas', 18) }} Nuevo perfil</a>
+</div>
+<div class="mis-perfiles">
+  {% for pf in mis_perfiles %}
+  <div class="card mi-perfil {% if perfil and pf.id == perfil.id %}actual{% endif %}">
+    {% if perfil and pf.id == perfil.id %}<span class="chip chip-ambar" style="position:absolute;top:14px;right:14px">En uso</span>{% endif %}
+    {{ avatar(pf, 64) }}
+    <div>
+      <h3 style="margin:0">{{ pf.nombre }}</h3>
+      <div class="tenue">@{{ pf.handle }}</div>
+      <div class="suave" style="font-size:.9rem;margin-top:4px">{{ m.subtitulo(pf) }}</div>
+    </div>
+    <div class="acciones">
+      {% if not perfil or pf.id != perfil.id %}
+      <form method="post" action="/perfil/activar/{{ pf.id }}"><button class="btn btn-primario btn-chico">Usar</button></form>
+      {% endif %}
+      <a class="btn btn-secundario btn-chico" href="/p/{{ pf.handle }}">Ver</a>
+      <a class="btn btn-fantasma btn-chico" href="/perfil/{{ pf.id }}/editar">{{ icono('editar', 14) }} Editar</a>
+    </div>
+  </div>
+  {% endfor %}
+  <a class="card nuevo-perfil" href="/perfil/nuevo">
+    <div><div style="font-size:34px">＋</div><b>Agregar mascota o entidad</b></div>
+  </a>
+</div>
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block titulo %}Administración{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block head %}<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">{% endblock %}
+{% block contenido %}
+<div class="encabezado-pagina"><div><h1>Administración</h1><p>Modera anuncios, verifica entidades y gestiona lugares del mapa. Puedes eliminar avisos de perdidos inapropiados desde cada aviso.</p></div></div>
+
+<div class="stats">
+  <div class="card stat"><b>{{ stats.usuarios }}</b><span>Cuentas</span></div>
+  <div class="card stat"><b>{{ stats.mascotas }}</b><span>Mascotas</span></div>
+  <div class="card stat"><b>{{ stats.entidades }}</b><span>Entidades</span></div>
+  <div class="card stat"><b>{{ stats.publicaciones }}</b><span>Publicaciones</span></div>
+  <div class="card stat"><b>{{ stats.anuncios_activos }}</b><span>Anuncios activos</span></div>
+  <a class="card stat" href="/perdidos" style="text-decoration:none"><b>{{ stats.avisos_perdidos }}</b><span>Avisos de perdidos activos</span></a>
+</div>
+
+<section class="card mb" id="anuncios">
+  <div class="card-pad" style="padding-bottom:0"><div class="card-titulo"><h3>{{ icono('megafono', 18) }} Anuncios</h3>{% if pendientes_admin %}<span class="estado estado-pendiente">{{ pendientes_admin }} pendiente(s)</span>{% endif %}</div></div>
+  <div class="tabla-contenedor">
+    <table class="tabla">
+      <thead><tr><th>Anuncio</th><th>Anunciante</th><th>Tipo</th><th>Estado</th><th>Vistas / clics</th><th></th></tr></thead>
+      <tbody>
+      {% for a in anuncios %}
+      <tr>
+        <td><b>{{ a.titulo }}</b><div class="tenue" style="max-width:340px">{{ a.texto|truncate(110) }}</div></td>
+        <td><a href="/p/{{ a.anunciante.handle }}">{{ a.anunciante.nombre }}</a><div class="tenue">{{ cat.CATEGORIAS_ENTIDAD.get(a.anunciante.categoria or 'otro')[0] }}</div></td>
+        <td>{% if a.tipo == 'pagado' %}<span class="chip">Pagado · {{ cat.PLANES_ANUNCIO.get(a.plan or 'semana')[0] }} (S/ {{ cat.PLANES_ANUNCIO.get(a.plan or 'semana')[2] }})</span>{% else %}<span class="chip chip-rosa">Gratuito</span>{% endif %}</td>
+        <td><span class="estado estado-{{ a.estado }}">{{ a.estado }}</span></td>
+        <td>{{ a.impresiones or 0 }} / {{ a.clics or 0 }}</td>
+        <td>
+          {% if a.estado == 'pendiente' %}
+          <div class="fila" style="gap:6px;justify-content:flex-end">
+            <form method="post" action="/admin/anuncio/{{ a.id }}/aprobar"><button class="btn btn-primario btn-chico">Aprobar</button></form>
+            <form method="post" action="/admin/anuncio/{{ a.id }}/rechazar"><button class="btn btn-peligro btn-chico">Rechazar</button></form>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="tenue">No hay anuncios.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card card-pad mb" id="entidades">
+  <div class="card-titulo"><h3>{{ icono('escudo', 18) }} Entidades</h3><span class="tenue">La verificación muestra una insignia ✓ en el perfil.</span></div>
+  {% for e in entidades %}
+  <div class="perfil-fila">
+    <a href="/p/{{ e.handle }}">{{ avatar(e, 40) }}</a>
+    <div class="info"><a href="/p/{{ e.handle }}">{{ e.nombre }} {{ m.verificado(e, 14) }}</a><span>{{ m.subtitulo(e) }}{% if e.telefono %} · {{ e.telefono }}{% endif %}</span></div>
+    <form method="post" action="/admin/perfil/{{ e.id }}/verificar"><button class="btn btn-chico {% if e.verificada %}btn-secundario{% else %}btn-suave{% endif %}">{% if e.verificada %}Quitar verificación{% else %}Verificar{% endif %}</button></form>
+  </div>
+  {% else %}
+  <p class="tenue">Aún no hay entidades.</p>
+  {% endfor %}
+</section>
+
+<section class="card" id="lugares">
+  <div class="card-pad" style="padding-bottom:0"><div class="card-titulo"><h3>{{ icono('pin', 18) }} Lugares del mapa</h3><span class="tenue">Parques y puntos que no tienen perfil.</span></div></div>
+  <div class="tabla-contenedor">
+    <table class="tabla">
+      <thead><tr><th>Lugar</th><th>Tipo</th><th>Distrito</th><th></th></tr></thead>
+      <tbody>
+      {% for l in lugares %}
+      <tr>
+        <td><b>{{ l.nombre }}</b>{% if l.descripcion %}<div class="tenue">{{ l.descripcion }}</div>{% endif %}</td>
+        <td>{{ cat.TIPOS_LUGAR.get(l.tipo, ('Otro', '📍'))[1] }} {{ cat.TIPOS_LUGAR.get(l.tipo, ('Otro', '📍'))[0] }}</td>
+        <td>{{ l.distrito or '' }}</td>
+        <td><form method="post" action="/admin/lugar/{{ l.id }}/eliminar" data-confirmar="¿Quitar {{ l.nombre }} del mapa?"><button class="btn-icono" aria-label="Eliminar lugar">{{ icono('basura', 16) }}</button></form></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <form class="seccion-form" method="post" action="/admin/lugar">
+    <h2>Agregar lugar</h2>
+    <div class="rejilla-3">
+      <div class="campo"><label for="l-nombre">Nombre</label><input id="l-nombre" type="text" name="nombre" required maxlength="150"></div>
+      <div class="campo"><label for="l-tipo">Tipo</label><select id="l-tipo" name="tipo">{% for k, v in cat.TIPOS_LUGAR.items() %}<option value="{{ k }}">{{ v[1] }} {{ v[0] }}</option>{% endfor %}</select></div>
+      <div class="campo"><label for="l-distrito">Distrito</label><input id="l-distrito" type="text" name="distrito" list="l-distritos" maxlength="120"><datalist id="l-distritos">{% for d in cat.DISTRITOS_LIMA %}<option value="{{ d }}">{% endfor %}</datalist></div>
+    </div>
+    <div class="rejilla-2">
+      <div class="campo"><label for="l-direccion">Dirección</label><input id="l-direccion" type="text" name="direccion" maxlength="250"></div>
+      <div class="campo"><label for="l-desc">Descripción</label><input id="l-desc" type="text" name="descripcion" maxlength="500"></div>
+    </div>
+    <div class="campo">
+      <span class="etiqueta">Ubicación (haz clic en el mapa)</span>
+      <div id="mapa-lugar" class="mapa-selector"></div>
+      <input type="hidden" id="l-lat" name="lat"><input type="hidden" id="l-lng" name="lng">
+    </div>
+    <button class="btn btn-primario" type="submit">{{ icono('mas', 18) }} Agregar al mapa</button>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts_previos %}<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>{% endblock %}
+{% block scripts %}<script>window.pawMapaSelector("mapa-lugar", "l-lat", "l-lng", {{ cat.CENTRO_MAPA|list|tojson }});</script>{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block titulo %}Perdidos y encontrados{% endblock %}
+{% block og_titulo %}Mascotas perdidas y encontradas · Pawbook{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block contenido %}
+<div class="encabezado-pagina">
+  <div>
+    <h1>Perdidos y encontrados</h1>
+    <p>Avisos de la comunidad. Si ves a alguna de estas mascotas, contacta a quien publicó el aviso.</p>
+  </div>
+  <div class="fila envolver">
+    <a class="btn btn-peligro" href="/perdidos/nuevo?tipo=perdido">🚨 Perdí a mi mascota</a>
+    <a class="btn btn-primario" href="/perdidos/nuevo?tipo=encontrado">🔎 Encontré una mascota</a>
+  </div>
+</div>
+
+<nav class="pestanas" aria-label="Tipo de aviso">
+  {% set qs = '&especie=' ~ (f.especie|urlencode) ~ '&distrito=' ~ (f.distrito|urlencode) ~ '&cerca=' ~ (f.cerca|urlencode) %}
+  <a href="/perdidos?tab=perdido{{ qs }}" class="{% if tab == 'perdido' %}activo{% endif %}">🚨 Se buscan<span class="num">{{ conteos.get('perdido', 0) }}</span></a>
+  <a href="/perdidos?tab=encontrado{{ qs }}" class="{% if tab == 'encontrado' %}activo{% endif %}">🔎 Encontradas<span class="num">{{ conteos.get('encontrado', 0) }}</span></a>
+  <a href="/perdidos?tab=reunidos{{ qs }}" class="{% if tab == 'reunidos' %}activo{% endif %}">🎉 Reunidas<span class="num">{{ conteos.get('reunidos', 0) }}</span></a>
+</nav>
+
+<form class="card filtros" method="get" action="/perdidos">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <div class="rejilla">
+    <div class="campo">
+      <label for="especie">Especie</label>
+      <select id="especie" name="especie"><option value="">Todas</option>
+        {% for clave, (nombre, emoji) in cat.ESPECIES.items() %}<option value="{{ clave }}" {% if f.especie == clave %}selected{% endif %}>{{ emoji }} {{ nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="campo">
+      <label for="distrito">Distrito</label>
+      <input id="distrito" type="text" name="distrito" list="lista-distritos" value="{{ f.distrito }}" placeholder="Cualquiera">
+      <datalist id="lista-distritos">{% for d in cat.DISTRITOS_LIMA %}<option value="{{ d }}">{% endfor %}</datalist>
+    </div>
+    {% if perfil %}
+    <div class="campo">
+      <label for="cerca">Cercanía</label>
+      <select id="cerca" name="cerca">
+        <option value="">Cualquier lugar</option>
+        <option value="distrito" {% if f.cerca == 'distrito' %}selected{% endif %}>Mi distrito{% if perfil.distrito %} ({{ perfil.distrito }}){% endif %}</option>
+        {% for km in ['1', '3', '5', '10'] %}<option value="{{ km }}" {% if f.cerca == km %}selected{% endif %}>A menos de {{ km }} km</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <button class="btn btn-primario" type="submit">{{ icono('buscar', 18) }} Filtrar</button>
+  </div>
+</form>
+
+{% if lista %}
+<div class="rejilla-avisos">
+  {% for r in lista %}{{ m.tarjeta_aviso(r) }}{% endfor %}
+</div>
+{% if total > lista|length %}<p class="tenue mt">Mostrando {{ lista|length }} de {{ total }}. Usa los filtros para ver otros.</p>{% endif %}
+{% else %}
+<div class="card vacio">
+  <div class="emoji">{% if tab == 'reunidos' %}🎉{% elif tab == 'encontrado' %}🔎{% else %}🐾{% endif %}</div>
+  <p>{% if tab == 'perdido' %}No hay mascotas perdidas con esos filtros. ¡Ojalá siga así!{% elif tab == 'encontrado' %}No hay avisos de mascotas encontradas con esos filtros.{% else %}Todavía no hay reencuentros registrados.{% endif %}</p>
+</div>
+{% endif %}
+
+<details class="card card-pad consejos mt">
+  <summary><b>💡 ¿Perdiste a tu mascota? Qué hacer en las primeras horas</b></summary>
+  <ol>
+    <li><b>Publica el aviso</b> con una foto reciente y comparte el enlace en tus grupos de WhatsApp y redes del barrio.</li>
+    <li><b>Recorre la zona</b> donde la viste por última vez, llamándola por su nombre. Los horarios tranquilos (temprano o de noche) ayudan.</li>
+    <li><b>Avisa a veterinarias y refugios cercanos</b>: muchas mascotas encontradas terminan ahí. Búscalos en el <a href="/mapa">mapa</a>.</li>
+    <li><b>Revisa la pestaña “Encontradas”</b> todos los días; te avisaremos si aparece una que coincide.</li>
+    <li><b>Cuidado con estafas</b>: no envíes dinero por adelantado a quien diga tenerla sin antes verla en persona o por videollamada.</li>
+  </ol>
+  <p class="tenue" style="margin:0">¿Encontraste una? Revisa si lleva placa o collar, llévala a una veterinaria para leer su microchip y publica el aviso aquí.</p>
+</details>
+{% endblock %}

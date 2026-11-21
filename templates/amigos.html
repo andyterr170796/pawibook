@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block titulo %}Amigos{% endblock %}
+{% block shell_clase %}sin-derecha{% endblock %}
+{% block contenido %}
+<div class="encabezado-pagina">
+  <div><h1>Amigos de {{ perfil.nombre }}</h1><p>Mascotas y entidades que sigues, y quién te sigue.</p></div>
+  <a class="btn btn-primario" href="/buscar">{{ icono('buscar', 18) }} Buscar amigos</a>
+</div>
+<nav class="pestanas" aria-label="Listas">
+  <a href="/amigos?tab=amigos" class="{% if tab == 'amigos' %}activo{% endif %}">🐾 Amigos seguidos<span class="num">{{ conteos.amigos }}</span></a>
+  <a href="/amigos?tab=entidades" class="{% if tab == 'entidades' %}activo{% endif %}">⭐ Entidades seguidas<span class="num">{{ conteos.entidades }}</span></a>
+  <a href="/amigos?tab=seguidores" class="{% if tab == 'seguidores' %}activo{% endif %}">💛 Seguidores<span class="num">{{ conteos.seguidores }}</span></a>
+</nav>
+{% if lista %}
+<div class="rejilla-perfiles">
+  {% for pf in lista %}{{ m.tarjeta_perfil(pf, pf.id in ids_sigo) }}{% endfor %}
+</div>
+{% else %}
+<div class="card vacio">
+  <div class="emoji">{% if tab == 'entidades' %}🩺{% elif tab == 'seguidores' %}💛{% else %}🐶{% endif %}</div>
+  <p>{% if tab == 'amigos' %}Aún no sigues a otras mascotas.{% elif tab == 'entidades' %}Aún no sigues veterinarias, tiendas ni refugios.{% else %}Todavía nadie sigue a {{ perfil.nombre }}. ¡Publica algo para que te encuentren!{% endif %}</p>
+  <a class="btn btn-primario" href="/buscar{% if tab == 'entidades' %}?tipo=entidad{% endif %}">Explorar</a>
+</div>
+{% endif %}
+{% endblock %}
